@@ -1,7 +1,7 @@
 import numpy as np
 import casadi as ca
 
-from quadrotor import QuadrotorSimpleModel
+from quadrotor import QuadrotorModel, QuadrotorSimpleModel, RPG_Quad
 
 # Quaternion Multiplication
 def quat_mult(q1,q2):
@@ -21,7 +21,7 @@ class WayPointOpt():
         self._loop = loop
         
         self._quad = quad
-        self._ddynamics = self._quad.ddynamics2()
+        self._ddynamics = self._quad.ddynamics_dt()
 
         self._wp_num = wp_num
         self._N_per_wp = 20 # opt param
@@ -194,7 +194,7 @@ class WayPointOpt():
 
     def define_opt(self):
         nlp_dect = {
-            'f': self._nlp_obj_dyn + self._nlp_obj_wp_p,
+            'f': self._nlp_obj_dyn + self._nlp_obj_wp_p + self._nlp_obj_minco,
             'x': ca.vertcat(*(self._nlp_x_x+self._nlp_x_u)),
             'p': ca.vertcat(*(self._nlp_p_xinit+self._nlp_p_wp_p+self._nlp_p_dt)),
             # 'g': ca.vertcat(*(self._nlp_g_dyn)),
@@ -260,6 +260,7 @@ class WayPointOpt():
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+    xinit = np.array([-5,4.5,1.2, 0,0,0, 1,0,0,0, 0,0,0])
     wp = np.array([[-1.1, -1.6, 3.6],
         [9.2, 6.6, 1.0],
         [9.2, -4.0, 1.2],
@@ -267,28 +268,19 @@ if __name__ == "__main__":
         [-4.5, -6.0, 0.8],
         [4.75, -0.9, 1.2],
         [-2.8, 6.8, 1.2],
-        [-1.1, -1.6, 3.6],
-        [9.2, 6.6, 1.0],
-        [9.2, -4.0, 1.2],
-        [-4.5, -6.0, 3.5],
-        [-4.5, -6.0, 0.8],
-        [4.75, -0.9, 1.2],
-        [-2.8, 6.8, 1.2],
-        [-1.1, -1.6, 3.6],
-        [9.2, 6.6, 1.0],
-        [9.2, -4.0, 1.2],
-        [-4.5, -6.0, 3.5],
-        [-4.5, -6.0, 0.8]])
-    dts = np.array([0.1]*19)
+        [4.75, -0.9, 1.2]]
+                  )
+    dts = np.array([0.3]*8)
     
-    quad = QuadrotorSimpleModel('quad.yaml')
+    # quad = QuadrotorModel('quad.yaml')
+    quad = RPG_Quad('rpg_quad.yaml')
     
-    wp_opt = WayPointOpt(quad, 19, loop=True)
+    wp_opt = WayPointOpt(quad, 8, loop=False)
     wp_opt.define_opt()
     wp_opt.define_opt_t()
     
-    res = wp_opt.solve_opt(0, wp.flatten(), dts)
-    res_t = wp_opt.solve_opt_t(0, wp.flatten())
+    res = wp_opt.solve_opt(xinit, wp.flatten(), dts)
+    res_t = wp_opt.solve_opt_t(xinit, wp.flatten())
     
     plot_pos = np.zeros((3, wp_opt._Herizon))
     plot_pos_t = np.zeros((3, wp_opt._Herizon))

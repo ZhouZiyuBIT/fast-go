@@ -17,55 +17,51 @@ def rotate_quat(q1,v1):
     ans = quat_mult(quat_mult(q1, ca.vertcat(0, v1)), ca.vertcat(q1[0,:],-q1[1,:], -q1[2,:], -q1[3,:]))
     return ca.vertcat(ans[1,:], ans[2,:], ans[3,:]) # to covert to 3x1 vec
 
-def RK4(f_c:ca.Function, dt:float, M:int):
+def RK4(f_c:ca.Function, X0, U, dt, M:int):
     DT = dt/M
-    X = ca.SX.sym('X', f_c.size1_in(0))
-    U = ca.SX.sym('U', f_c.size1_in(1))
-    X0 = X
+    X1 = X0
     for _ in range(M):
-        k1 = DT*f_c(X,        U)
-        k2 = DT*f_c(X+0.5*k1, U)
-        k3 = DT*f_c(X+0.5*k2, U)
-        k4 = DT*f_c(X+k3,     U)
-        X = X+(k1+2*k2+2*k3+k4)/6
-    F = ca.Function('F', [X0, U], [X] ,['X0', 'U'], ['X1'])
-    return F
+        k1 = DT*f_c(X1,        U)
+        k2 = DT*f_c(X1+0.5*k1, U)
+        k3 = DT*f_c(X1+0.5*k2, U)
+        k4 = DT*f_c(X1+k3,     U)
+        X1 = X1+(k1+2*k2+2*k3+k4)/6
+    # F = ca.Function('F', [X0, U], [X1] ,['X0', 'U'], ['X1'])
+    return X1
 
-def RK4_t(f_c:ca.Function, dt:ca.SX, M:int):
+# def RK4_t(f_c:ca.Function, dt:ca.SX, M:int):
+#     DT = dt/M
+#     X = ca.SX.sym('X', f_c.size1_in(0))
+#     U = ca.SX.sym('U', f_c.size1_in(1))
+#     X0 = X
+#     for _ in range(M):
+#         k1 = DT*f_c(X,        U)
+#         k2 = DT*f_c(X+0.5*k1, U)
+#         k3 = DT*f_c(X+0.5*k2, U)
+#         k4 = DT*f_c(X+k3,     U)
+#         X = X+(k1+2*k2+2*k3+k4)/6
+#     F = ca.Function('F', [X0, U, dt], [X], ['X0', 'U', 'dt'], ['X1'])
+#     return F
+
+def EulerIntegral(f_c:ca.Function, X0, U, dt, M:int):
     DT = dt/M
-    X = ca.SX.sym('X', f_c.size1_in(0))
-    U = ca.SX.sym('U', f_c.size1_in(1))
-    X0 = X
+    X1 = X0
     for _ in range(M):
-        k1 = DT*f_c(X,        U)
-        k2 = DT*f_c(X+0.5*k1, U)
-        k3 = DT*f_c(X+0.5*k2, U)
-        k4 = DT*f_c(X+k3,     U)
-        X = X+(k1+2*k2+2*k3+k4)/6
-    F = ca.Function('F', [X0, U, dt], [X], ['X0', 'U', 'dt'], ['X1'])
-    return F
+        X1 = X1 + DT*f_c(X1, U)
+    
+    # F = ca.Function('F', [X0, U], [X1], ['X0', 'U'], ['X1'])
+    return X1
 
-def Integral(f_c:ca.Function, dt:float):
-    X = ca.SX.sym('X', f_c.size1_in(0))
-    U = ca.SX.sym('U', f_c.size1_in(1))
+# def Integral_t(f_c:ca.Function, dt:ca.SX):
+#     X = ca.SX.sym('X', f_c.size1_in(0))
+#     U = ca.SX.sym('U', f_c.size1_in(1))
     
-    X1 = X + f_c(X, U)*dt
-    q_l = ca.sqrt(X1[6:10].T@X1[6:10])
-    X1[6:10] = X1[6:10]/q_l
+#     X1 = X + f_c(X, U)*dt
+#     q_l = ca.sqrt(X1[6:10].T@X1[6:10])
+#     X1[6:10] = X1[6:10]/q_l
     
-    F = ca.Function('F', [X, U], [X1], ['X0', 'U'], ['X1'])
-    return F
-
-def Integral_t(f_c:ca.Function, dt:ca.SX):
-    X = ca.SX.sym('X', f_c.size1_in(0))
-    U = ca.SX.sym('U', f_c.size1_in(1))
-    
-    X1 = X + f_c(X, U)*dt
-    q_l = ca.sqrt(X1[6:10].T@X1[6:10])
-    X1[6:10] = X1[6:10]/q_l
-    
-    F = ca.Function('F', [X, U, dt], [X1], ['X0', 'U', 'dt'], ['X1'])
-    return F
+#     F = ca.Function('F', [X, U, dt], [X1], ['X0', 'U', 'dt'], ['X1'])
+#     return F
 
 def constrain(a, lb, ub):
     if a<lb:
@@ -160,13 +156,26 @@ class QuadrotorSimpleModel(object):
     
     def ddynamics(self, dt):
         f = self.dynamics()
-        return RK4(f, dt, 2)
+        X0 = ca.SX.sym("X", f.size1_in(0))
+        U = ca.SX.sym("U", f.size1_in(1))
+        
+        X1 = RK4(f, X0, U, dt, 1)
+        q_l = ca.sqrt(X1[6:10].T@X1[6:10])
+        X1[6:10] = X1[6:10]/q_l
+        
+        return ca.Function("ddyn", [X0, U], [X1], ["X0", "U"], ["X1"])
     
-    def ddynamics2(self):
+    def ddynamics_dt(self):
         f = self.dynamics()
+        X0 = ca.SX.sym("X", f.size1_in(0))
+        U = ca.SX.sym("U", f.size1_in(1))
         dt = ca.SX.sym('dt')
-        # return RK4_t(f, dt, 4)
-        return Integral_t(f, dt)
+        
+        X1 = RK4(f, X0, U, dt, 1)
+        q_l = ca.sqrt(X1[6:10].T@X1[6:10])
+        X1[6:10] = X1[6:10]/q_l
+        
+        return ca.Function("ddyn_t", [X0, U, dt], [X1], ["X0", "U", "dt"], ["X1"])
 
 class QuadrotorModel(object):
     def __init__(self, cfg_f):
@@ -264,20 +273,33 @@ class QuadrotorModel(object):
     
     def ddynamics(self, dt):
         f = self.dynamics()
-        # return RK4(f, dt, 1)
-        return Integral(f, dt)
+        X0 = ca.SX.sym("X", f.size1_in(0))
+        U = ca.SX.sym("U", f.size1_in(1))
+        
+        X1 = RK4(f, X0, U, dt, 1)
+        q_l = ca.sqrt(X1[6:10].T@X1[6:10])
+        X1[6:10] = X1[6:10]/q_l
+        
+        return ca.Function("ddyn", [X0, U], [X1], ["X0", "U"], ["X1"])
     
-    def ddynamics2(self):
+    def ddynamics_dt(self):
         f = self.dynamics()
-        dt = ca.SX.sym("dt")
-        return Integral_t(f, dt)
+        X0 = ca.SX.sym("X", f.size1_in(0))
+        U = ca.SX.sym("U", f.size1_in(1))
+        dt = ca.SX.sym('dt')
+        
+        X1 = RK4(f, X0, U, dt, 1)
+        q_l = ca.sqrt(X1[6:10].T@X1[6:10])
+        X1[6:10] = X1[6:10]/q_l
+        
+        return ca.Function("ddyn_t", [X0, U, dt], [X1], ["X0", "U", "dt"], ["X1"])
 
 class QuadrotorSim(object):
     def __init__(self, quad:QuadrotorModel):
         self._quad = quad
         
-        f = quad.dynamics() # Continuous State Equation
-        self._dyn_d = RK4(f, 0.001, 4) # Discrete State Equation
+        self._dyn_d = quad.ddynamics(0.001) # Continuous State Equation
+        # self._dyn_d = RK4(f, 0.001, 4) # Discrete State Equation
         
         # X:=[px,py,pz, vx,vy,vz, qw,qx,qy,qz, wx,wy,wz]
         self._X = np.zeros(13)
@@ -328,6 +350,159 @@ class QuadrotorSim(object):
         X_ = self._dyn_d(self._X, self._T)
         self._X = X_.full().flatten()
         return self._X
+
+class RPG_Quad:
+    def __init__(self, filename = ""):
+        self.m = 1                                        # mass in [kg]
+        self.l = 1                                        # arm length
+        self.I = ca.DM([(1, 0, 0), (0, 1, 0), (0, 0, 1)])    # Inertia
+        self.I_inv = ca.inv(self.I)                          # Inertia inverse
+        self.T_max = 5                                    # max thrust [N]
+        self.T_min = 0                                    # min thrust [N]
+        self.omega_max = 3                                # max bodyrate [rad/s]
+        self.ctau = 0.5                                   # thrust torque coeff.
+        self.rampup_dist = 0
+        self.T_ramp_start = 5
+        self.omega_ramp_start = 3
+
+        self.v_max = None
+        self.cd = 0.0
+
+        self.g = 9.801
+
+        if filename:
+            self.load(filename)
+    
+        self._X_lb = [-ca.inf, -ca.inf, -ca.inf,
+                      -ca.inf, -ca.inf, -ca.inf,
+                      -1,-1,-1,-1,
+                      -self.omega_max_xy, -self.omega_max_xy, -self.omega_max_z]
+        self._X_ub = [ca.inf, ca.inf, ca.inf,
+                      ca.inf, ca.inf, ca.inf,
+                      1,1,1,1,
+                      self.omega_max_xy, self.omega_max_xy, self.omega_max_z]
+        self._U_lb = [self.T_min, self.T_min, self.T_min, self.T_min]
+        self._U_ub = [self.T_max, self.T_max, self.T_max, self.T_max]
+
+    def load(self, filename):
+        print("Loading track from " + filename)
+        with open(filename, 'r') as file:
+          quad = yaml.load(file, Loader=yaml.FullLoader)
+
+        if 'mass' in quad:
+          self.m = quad['mass']
+        else:
+          print("No mass specified in " + filename)
+
+        if 'arm_length' in quad:
+          self.l = quad['arm_length']
+        else:
+          print("No arm length specified in " + filename)
+
+        if 'inertia' in quad:
+          self.I = ca.DM(quad['inertia'])
+          self.I_inv = ca.inv(self.I)
+        else:
+          print("No inertia specified in " + filename)
+
+
+        if 'TWR_max' in quad:
+          self.T_max = quad['TWR_max'] * 9.81 * self.m / 4
+        elif 'thrust_max' in quad:
+          self.T_max = quad['thrust_max']
+        else:
+          print("No max thrust specified in " + filename)
+
+        if 'TWR_min' in quad:
+          self.T_min = quad['TWR_min'] * 9.81 * self.m / 4
+        elif 'thrust_min' in quad:
+          self.T_min = quad['thrust_min']
+        else:
+          print("No min thrust specified in " + filename)
+
+        if 'omega_max_xy' in quad:
+          self.omega_max_xy = quad['omega_max_xy']
+        else:
+          print("No max omega_xy specified in " + filename)
+
+        if 'omega_max_z' in quad:
+          self.omega_max_z = quad['omega_max_z']
+        else:
+          print("No max omega_z specified in " + filename)
+
+        if 'torque_coeff' in quad:
+          self.ctau = quad['torque_coeff']
+        else:
+          print("No thrust to drag coefficient specified in " + filename)
+
+        if 'v_max' in quad:
+          self.v_max = quad['v_max']
+          a_max = 4 * self.T_max / self.m
+          a_hmax = np.sqrt(a_max**2 - self.g**2)
+          self.cd = a_hmax / self.v_max
+        if 'drag_coeff' in quad:
+          self.cd = quad['drag_coeff']
+
+        if 'rampup_dist' in quad:
+          self.rampup_dist = quad['rampup_dist']
+          if 'TWR_ramp_start' in quad and 'omega_ramp_start' in quad:
+            self.T_ramp_start = min(quad['TWR_ramp_start'] * 9.81 * self.m / 4, self.T_max)
+            self.omega_ramp_start = min(quad['omega_ramp_start'], self.omega_max_xy)
+          else:
+            print("No TWR_ramp_start or omega_ramp_start specified. Disabling rampup")
+            rampup_dist = 0
+
+
+    def dynamics(self):
+        px, py, pz = ca.SX.sym('px'), ca.SX.sym('py'), ca.SX.sym('pz')
+        vx, vy, vz = ca.SX.sym('vx'), ca.SX.sym('vy'), ca.SX.sym('vz')
+        qw, qx, qy, qz = ca.SX.sym('qw'), ca.SX.sym('qx'), ca.SX.sym('qy'), ca.SX.sym('qz')
+        wx, wy, wz = ca.SX.sym('wx'), ca.SX.sym('wy'), ca.SX.sym('wz')
+
+        T1, T2, T3, T4 = ca.SX.sym('T1'), ca.SX.sym('T2'), ca.SX.sym('T3'), ca.SX.sym('T4')
+
+        x = ca.vertcat(px,py,pz, vx,vy,vz, qw,qx,qy,qz, wx,wy,wz)
+        u = ca.vertcat(T1,T2,T3,T4)
+
+        g = ca.DM([0, 0, self.g])
+
+        x_dot = ca.vertcat(
+          vx,
+          vy,
+          vz,
+          rotate_quat(ca.veccat(qw,qx,qy,qz), ca.vertcat(0, 0, -(T1+T2+T3+T4)/self.m)) + g - ca.veccat(vx,vy,vz) * self.cd,
+          0.5*quat_mult(ca.veccat(qw,qx,qy,qz), ca.vertcat(0, wx,wy,wz)),
+          ca.mtimes(self.I_inv, ca.vertcat(
+            self.l*(T1-T2-T3+T4),
+            self.l*(-T1-T2+T3+T4),
+            self.ctau*(T1-T2+T3-T4))
+          -ca.cross(ca.veccat(wx,wy,wz),ca.mtimes(self.I,ca.veccat(wx,wy,wz))))
+        )
+        fx = ca.Function('f',  [x, u], [x_dot], ['x', 'u'], ['x_dot'])
+        return fx
+
+    def ddynamics(self, dt):
+        f = self.dynamics()
+        X0 = ca.SX.sym("X", f.size1_in(0))
+        U = ca.SX.sym("U", f.size1_in(1))
+        
+        X1 = RK4(f, X0, U, dt, 1)
+        q_l = ca.sqrt(X1[6:10].T@X1[6:10])
+        X1[6:10] = X1[6:10]/q_l
+        
+        return ca.Function("ddyn", [X0, U], [X1], ["X0", "U"], ["X1"])
+    
+    def ddynamics_dt(self):
+        f = self.dynamics()
+        X0 = ca.SX.sym("X", f.size1_in(0))
+        U = ca.SX.sym("U", f.size1_in(1))
+        dt = ca.SX.sym('dt')
+        
+        X1 = EulerIntegral(f, X0, U, dt, 1)
+        q_l = ca.sqrt(X1[6:10].T@X1[6:10])
+        X1[6:10] = X1[6:10]/q_l
+        
+        return ca.Function("ddyn_t", [X0, U, dt], [X1], ["X0", "U", "dt"], ["X1"])
 
 if __name__ == "__main__":
     quad = QuadrotorModel('quad.yaml')
