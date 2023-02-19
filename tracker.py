@@ -13,6 +13,28 @@ def linear_table(n, t, p0, p:ca.SX):
     
     return y
 
+def linear(n, l, p:ca.SX, ls):
+    y = 0
+    for i in range(n-1):
+        y += ca.logic_and(ls[i]<=l, l<ls[i+1])*( p[:,i]+(l-ls[i])/(ls[i+1]-ls[i])*(p[:,i+1]-p[:,i]) )
+    y += (ls[n-1]<=l)*p[:,n-1]
+    # y += (ls[n-1]<=l)*( p[:,n-2]+(l-ls[n-2])/(ls[n-1]-ls[n-2])*(p[:,n-1]-p[:,n-2]) )
+    return y
+
+def p_cost(v, Th):
+    # 1
+    c = v.T@v
+    
+    # 2
+    # ll = v.T@v
+    # c = (ll<=Th*Th)*ll
+    # c += (ll>Th*Th)*(ll-Th*Th)*1000+Th*Th
+    
+    # 3
+    # ll = v.T@v
+    # c = (ll>Th*Th)*(ll-Th*Th)
+    return c
+
 class TrackerOpt():
     def __init__(self, quad:QuadrotorModel):
         self._quad = quad
@@ -36,12 +58,16 @@ class TrackerOpt():
         self._trj_N = 20
         self._Trj_p = ca.SX.sym("Trj_p", 3, self._trj_N)
         self._Trj_yaw = ca.SX.sym("Trj_yaw", 1, self._trj_N)
-        
+        self._Trj_p_ls = [0]
+        self._Trj_yaw_ls = [0]
+        for i in range(self._trj_N-1):
+            self._Trj_p_ls.append(self._Trj_p_ls[i] + ca.sqrt( (self._Trj_p[:,i+1]-self._Trj_p[:,i]).T@(self._Trj_p[:,i+1]-self._Trj_p[:,i]) ))
+            self._Trj_yaw_ls.append(self._Trj_yaw_ls[i] + ca.norm_2( self._Trj_yaw[i+1]-self._Trj_yaw[i] ))
         self._opt_option = {
             'verbose': False,
             'ipopt.tol': 1e-2,
             'ipopt.acceptable_tol': 1e-2,
-            'ipopt.max_iter': 50,
+            'ipopt.max_iter': 20,
             # 'ipopt.warm_start_init_point': 'yes',
             'ipopt.print_level': 0,
         }
@@ -93,9 +119,10 @@ class TrackerOpt():
         self._nlp_ubg_dyn += [  0.0 for _ in range(self._X_dim) ]
         
         self._nlp_obj_l += self._l[0]
-        trjp = linear_table(self._trj_N, self._nlp_obj_l, [0,0,0], self._Trj_p)
-        self._nlp_obj_trjp += (self._Xs[:3,0]-trjp).T@(self._Xs[:3,0]-trjp)
-        trjyaw =  linear_table(self._trj_N, self._nlp_obj_l, 0, self._Trj_yaw)
+        trjp = linear(self._trj_N, self._l[0], self._Trj_p, self._Trj_p_ls)
+        # self._nlp_obj_trjp += (self._Xs[:3,0]-trjp).T@(self._Xs[:3,0]-trjp)
+        self._nlp_obj_trjp += p_cost(self._Xs[:3,0]-trjp, 0.5)
+        trjyaw =  linear(self._trj_N, self._l[0], self._Trj_yaw, self._Trj_yaw_ls)
         c_trjyaw = ca.cos(trjyaw/2)
         s_trjyaw = ca.sin(trjyaw/2)
         _qw = self._Xs[6,0]
@@ -105,7 +132,7 @@ class TrackerOpt():
         
         self._nlp_x_l += [self._l[0]]
         self._nlp_lbx_l += [0]
-        self._nlp_ubx_l += [self._trj_N]
+        self._nlp_ubx_l += [50]
         
         for i in range(1,self._Herizon):
             self._nlp_x_x += [ self._Xs[:, i] ]
@@ -126,9 +153,10 @@ class TrackerOpt():
             self._nlp_ubg_dyn += [  0.0 for _ in range(self._X_dim) ]
             
             self._nlp_obj_l += self._l[i]
-            trjp = linear_table(self._trj_N, self._nlp_obj_l, [0,0,0], self._Trj_p)
-            self._nlp_obj_trjp += (self._Xs[:3,i]-trjp).T@(self._Xs[:3,i]-trjp)
-            trjyaw =  linear_table(self._trj_N, self._nlp_obj_l, 0, self._Trj_yaw)
+            trjp = linear(self._trj_N, self._l[i], self._Trj_p, self._Trj_p_ls)
+            # self._nlp_obj_trjp += (self._Xs[:3,i]-trjp).T@(self._Xs[:3,i]-trjp)
+            self._nlp_obj_trjp += p_cost(self._Xs[:3,i]-trjp, 0.5)
+            trjyaw =  linear(self._trj_N, self._l[i], self._Trj_yaw, self._Trj_yaw_ls)
             c_trjyaw = ca.cos(trjyaw/2)
             s_trjyaw = ca.sin(trjyaw/2)
             _qw = self._Xs[6,i]
@@ -138,7 +166,7 @@ class TrackerOpt():
             
             self._nlp_x_l += [self._l[i]]
             self._nlp_lbx_l += [0]
-            self._nlp_ubx_l += [self._trj_N]
+            self._nlp_ubx_l += [50]
         
         self._nlp_p_xinit += [self._X_init]
         
@@ -153,8 +181,9 @@ class TrackerOpt():
             self._xul0[i*self._X_dim+6] = 1
        
     def define_opt(self):
+        print(self._nlp_obj_l)
         nlp_dect = {
-            'f': -1*self._nlp_obj_l+10*(self._nlp_obj_trjp)+30*self._nlp_obj_trjyaw,
+            'f': -1*self._nlp_obj_l+30*(self._nlp_obj_trjp),#+30*self._nlp_obj_trjyaw,
             'x': ca.vertcat(*(self._nlp_x_x+self._nlp_x_u+self._nlp_x_l)),
             'p': ca.vertcat(*(self._nlp_p_xinit+self._nlp_p_Trj_p+self._nlp_p_Trj_yaw)),
             'g': ca.vertcat(*(self._nlp_g_dyn)),

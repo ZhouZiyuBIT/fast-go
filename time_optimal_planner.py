@@ -281,6 +281,8 @@ if __name__ == "__main__":
     
     res = wp_opt.solve_opt(xinit, wp.flatten(), dts)
     res_t = wp_opt.solve_opt_t(xinit, wp.flatten())
+    wp[2][0] += 1
+    res_t = wp_opt.solve_opt_t(xinit, wp.flatten())
     
     plot_pos = np.zeros((3, wp_opt._Herizon))
     plot_pos_t = np.zeros((3, wp_opt._Herizon))

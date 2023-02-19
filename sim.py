@@ -12,7 +12,7 @@ plot_trj_x = np.zeros(20)
 plot_trj_y = np.zeros(20)
 for i in range(20):
     trjp[3*i+0] = np.sin(i/15)*8
-    trjp[3*i+1] = np.cos(i/3)*9-8
+    trjp[3*i+1] = np.cos(i/3)*9-9
     trjp[3*i+2] = 0
     plot_trj_x[i] = trjp[3*i+0]
     plot_trj_y[i] = trjp[3*i+1]
@@ -24,8 +24,8 @@ tracker.define_opt()
 tracker.reset_xul()
 
 # 10s
-plot_quad_xy = np.zeros((2,300))
-for t in range(300):
+plot_quad_xy = np.zeros((2,500))
+for t in range(500):
     plot_quad_xy[0,t] = q_sim._X[0]
     plot_quad_xy[1,t] = q_sim._X[1]
     res = tracker.solve(q_sim._X, trjp, trjyaw)
@@ -36,7 +36,7 @@ for t in range(300):
     u[2] = x[11]
     u[3] = x[12]
     q_sim.step10ms(u)
-    q_sim.step10ms(u)
+    # q_sim.step10ms(u)
     # q_sim._T[0] = x[10*13+0]
     # q_sim._T[1] = x[10*13+1]
     # q_sim._T[2] = x[10*13+2]
