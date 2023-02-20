@@ -24,7 +24,7 @@ class WayPointOpt():
         self._ddynamics = self._quad.ddynamics_dt()
 
         self._wp_num = wp_num
-        self._N_per_wp = 20 # opt param
+        self._N_per_wp = 40 # opt param
         self._Herizon = self._wp_num*self._N_per_wp
 
         self._X_dim = self._ddynamics.size1_in(0)
@@ -44,12 +44,12 @@ class WayPointOpt():
         else:
             self._X_init = ca.SX.sym('X_init', self._X_dim)
 
-        self._cost_Co = ca.diag([1,2,2,2]) # opt param
+        self._cost_Co = ca.diag([0.001,0.001,0.001,0.001]) # opt param
         self._cost_WP_p = ca.diag([1,1,1]) # opt param
 
         self._opt_option = {
             'verbose': False,
-            # 'ipopt.tol': 1e-5,
+            'ipopt.tol': 1e-3,
             # 'ipopt.acceptable_tol': 1e-8,
             'ipopt.max_iter': 1000,
             'ipopt.warm_start_init_point': 'yes',
@@ -57,8 +57,8 @@ class WayPointOpt():
         }
         self._opt_t_option = {
             'verbose': False,
-            'ipopt.tol': 1e-2,
-            'ipopt.acceptable_tol': 1e-2,
+            # 'ipopt.tol': 1e-2,
+            # 'ipopt.acceptable_tol': 1e-2,
             'ipopt.max_iter': 1000,
             # 'ipopt.warm_start_init_point': 'yes',
             # 'ipopt.print_level': 0
@@ -138,7 +138,7 @@ class WayPointOpt():
 
             self._nlp_g_wp_p += [ (self._Xs[:3,(i+1)*self._N_per_wp-1]-self._WPs_p[:,i]).T@(self._Xs[:3,(i+1)*self._N_per_wp-1]-self._WPs_p[:,i]) ]
             self._nlp_lbg_wp_p += [0]
-            self._nlp_ubg_wp_p += [ 0.001 ]
+            self._nlp_ubg_wp_p += [ 0.09 ]
 
             self._nlp_p_dt += [ self._DTs[i] ]
             self._nlp_p_wp_p += [ self._WPs_p[:,i] ]
@@ -157,7 +157,7 @@ class WayPointOpt():
             # self._nlp_lbg_orientation += [-0.5,-1.0 ]
             # self._nlp_ubg_orientation += [ 0.5, 1.0 ]
 
-            self._nlp_obj_minco += (self._Us[:,i*self._N_per_wp]-[-9.91,0,0,0]).T@self._cost_Co@(self._Us[:,i*self._N_per_wp]-[-9.91,0,0,0])
+            self._nlp_obj_minco += (self._Us[:,i*self._N_per_wp]).T@self._cost_Co@(self._Us[:,i*self._N_per_wp])
             self._nlp_obj_time += self._DTs[i]*self._N_per_wp
             self._nlp_obj_wp_p += (self._Xs[:3,(i+1)*self._N_per_wp-1]-self._WPs_p[:,i]).T@self._cost_WP_p@(self._Xs[:3,(i+1)*self._N_per_wp-1]-self._WPs_p[:,i])
             
@@ -177,12 +177,12 @@ class WayPointOpt():
                 # self._nlp_lbg_orientation += [-0.01 ]
                 # self._nlp_ubg_orientation += [ 0.01 ]
                 
-                if (j < self._N_per_wp*0.9) and (j > self._N_per_wp*(0.3)):
-                    q1 = self._Xs[6:10, i*self._N_per_wp+j]
-                    v1 = rotate_quat(ca.vertcat( q1[0], -q1[1], -q1[2], -q1[3]), self._WPs_p[:,i]-self._Xs[:3, i*self._N_per_wp+j] )
-                    self._nlp_g_orientation += [ v1[1]/v1[0], v1[2]/v1[0] ]
-                    self._nlp_lbg_orientation += [-0.5,-0.5 ]
-                    self._nlp_ubg_orientation += [ 0.5, 0.5 ]
+                # if (j < self._N_per_wp*0.9) and (j > self._N_per_wp*(0.3)):
+                #     q1 = self._Xs[6:10, i*self._N_per_wp+j]
+                #     v1 = rotate_quat(ca.vertcat( q1[0], -q1[1], -q1[2], -q1[3]), self._WPs_p[:,i]-self._Xs[:3, i*self._N_per_wp+j] )
+                #     self._nlp_g_orientation += [ v1[1]/v1[0], v1[2]/v1[0] ]
+                #     self._nlp_lbg_orientation += [-0.5,-0.5 ]
+                #     self._nlp_ubg_orientation += [ 0.5, 0.5 ]
                 
                 dd_dyn = self._Xs[:,i*self._N_per_wp+j]-self._ddynamics( self._Xs[:,i*self._N_per_wp+j-1], self._Us[:,i*self._N_per_wp+j], self._DTs[i])
                 self._nlp_g_dyn += [ dd_dyn ]
@@ -190,7 +190,7 @@ class WayPointOpt():
                 self._nlp_lbg_dyn += [ -0.0 for _ in range(self._X_dim) ]
                 self._nlp_ubg_dyn += [  0.0 for _ in range(self._X_dim) ]
 
-                self._nlp_obj_minco += (self._Us[:,i*self._N_per_wp+j]-[-9.91,0,0,0]).T@self._cost_Co@(self._Us[:,i*self._N_per_wp+j]-[-9.91,0,0,0])
+                self._nlp_obj_minco += (self._Us[:,i*self._N_per_wp+j]).T@self._cost_Co@(self._Us[:,i*self._N_per_wp+j])
 
     def define_opt(self):
         nlp_dect = {
@@ -264,25 +264,25 @@ if __name__ == "__main__":
     wp = np.array([[-1.1, -1.6, 3.6],
         [9.2, 6.6, 1.0],
         [9.2, -4.0, 1.2],
-        [-4.5, -6.0, 3.5],
-        [-4.5, -6.0, 0.8],
-        [4.75, -0.9, 1.2],
-        [-2.8, 6.8, 1.2],
-        [4.75, -0.9, 1.2]]
+        [-4.5, -6.0, 3.5]]
+        # [-4.5, -6.0, 0.8],
+        # [4.75, -0.9, 1.2],
+        # [-2.8, 6.8, 1.2],
+        # [4.75, -0.9, 1.2]]
                   )
-    dts = np.array([0.3]*8)
+    dts = np.array([0.2]*4)
     
-    # quad = QuadrotorModel('quad.yaml')
-    quad = RPG_Quad('rpg_quad.yaml')
+    quad = QuadrotorModel('quad.yaml')
+    # quad = RPG_Quad('rpg_quad.yaml')
     
-    wp_opt = WayPointOpt(quad, 8, loop=False)
+    wp_opt = WayPointOpt(quad, 4, loop=True)
     wp_opt.define_opt()
     wp_opt.define_opt_t()
     
     res = wp_opt.solve_opt(xinit, wp.flatten(), dts)
     res_t = wp_opt.solve_opt_t(xinit, wp.flatten())
-    wp[2][0] += 1
-    res_t = wp_opt.solve_opt_t(xinit, wp.flatten())
+    # wp[2][0] += 1
+    # res_t = wp_opt.solve_opt_t(xinit, wp.flatten())
     
     plot_pos = np.zeros((3, wp_opt._Herizon))
     plot_pos_t = np.zeros((3, wp_opt._Herizon))

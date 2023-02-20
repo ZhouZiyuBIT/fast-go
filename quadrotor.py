@@ -29,39 +29,13 @@ def RK4(f_c:ca.Function, X0, U, dt, M:int):
     # F = ca.Function('F', [X0, U], [X1] ,['X0', 'U'], ['X1'])
     return X1
 
-# def RK4_t(f_c:ca.Function, dt:ca.SX, M:int):
-#     DT = dt/M
-#     X = ca.SX.sym('X', f_c.size1_in(0))
-#     U = ca.SX.sym('U', f_c.size1_in(1))
-#     X0 = X
-#     for _ in range(M):
-#         k1 = DT*f_c(X,        U)
-#         k2 = DT*f_c(X+0.5*k1, U)
-#         k3 = DT*f_c(X+0.5*k2, U)
-#         k4 = DT*f_c(X+k3,     U)
-#         X = X+(k1+2*k2+2*k3+k4)/6
-#     F = ca.Function('F', [X0, U, dt], [X], ['X0', 'U', 'dt'], ['X1'])
-#     return F
-
 def EulerIntegral(f_c:ca.Function, X0, U, dt, M:int):
     DT = dt/M
     X1 = X0
     for _ in range(M):
         X1 = X1 + DT*f_c(X1, U)
     
-    # F = ca.Function('F', [X0, U], [X1], ['X0', 'U'], ['X1'])
     return X1
-
-# def Integral_t(f_c:ca.Function, dt:ca.SX):
-#     X = ca.SX.sym('X', f_c.size1_in(0))
-#     U = ca.SX.sym('U', f_c.size1_in(1))
-    
-#     X1 = X + f_c(X, U)*dt
-#     q_l = ca.sqrt(X1[6:10].T@X1[6:10])
-#     X1[6:10] = X1[6:10]/q_l
-    
-#     F = ca.Function('F', [X, U, dt], [X1], ['X0', 'U', 'dt'], ['X1'])
-#     return F
 
 def constrain(a, lb, ub):
     if a<lb:
@@ -89,8 +63,7 @@ class PID(object):
         out = constrain(out, -self._out_lim, self._out_lim)
         self._last_e = e
         
-        return out
-        
+        return out    
 
 class QuadrotorSimpleModel(object):
     def __init__(self, cfg_f):
@@ -191,20 +164,12 @@ class QuadrotorModel(object):
         
         self._v_xy_max = ca.inf
         self._v_z_max = ca.inf
-        self._omega_xy_max = 1
+        self._omega_xy_max = 5
         self._omega_z_max = 1
         self._T_max = 4.179
         self._T_min = 0
 
-        with open(cfg_f, 'r') as f:
-            self._cfg = yaml.load(f, Loader=yaml.FullLoader)
-        
-        # if 'omega_xy_max' in self._cfg:
-        #     self._omega_xy_max = self._cfg['omega_xy_max']
-        # if 'omega_z_max' in self._cfg:
-        #     self._omega_z_max = self._cfg['omega_z_max']
-        # if 'G' in self._cfg:
-        #     self._G = self._cfg['G']
+        self.load(cfg_f)
         
         self._X_lb = [-ca.inf, -ca.inf, -ca.inf,
                       -self._v_xy_max, -self._v_xy_max, -self._v_z_max,
@@ -218,6 +183,63 @@ class QuadrotorModel(object):
         self._U_lb = [self._T_min, self._T_min, self._T_min, self._T_min]
         self._U_ub = [self._T_max, self._T_max, self._T_max, self._T_max]
 
+    def load(self, cfg_f):
+      with open(cfg_f, 'r') as f:
+        cfg = yaml.load(f, Loader=yaml.FullLoader)
+        
+        if "mass" in cfg:
+          self._m = cfg["mass"]
+        else:
+          print("No mass specified in " + cfg_f)
+        
+        if "arm_length" in cfg:
+          self._arm_l = cfg["arm_length"]
+        else:
+          print("No arm length specified in " + cfg_f)
+
+        if "inertia" in cfg:
+          self._J = np.diag(cfg["inertia"])
+          self._J_inv = np.linalg.inv(self._J)
+        else:
+          print("No inertia specified in " + cfg_f)
+        
+        if "torque_coeff" in cfg:
+          self._c_tau = cfg["torque_coeff"]
+        else:
+          print("No torque coefficient specified in " + cfg_f)
+        
+        if "drag_coeff" in cfg:
+          self._D = np.diag(cfg["drag_coeff"])
+        else:
+           print("No drag coefficient specified in " + cfg_f)
+        
+        if "v_xy_max" in cfg:
+          self._v_xy_max = cfg["v_xy_max"]
+        else:
+          self._v_xy_max = ca.inf
+        if "v_z_max" in cfg:
+          self._v_z_max = cfg["v_z_max"]
+        else:
+          self._v_z_max = ca.inf
+        
+        if "omega_xy_max" in cfg:
+          self._omega_xy_max = cfg["omega_xy_max"]
+        else:
+          print("No max angular velocity xy specfied in " + cfg_f)
+        if "omega_z_max" in cfg:
+          self._omega_z_max = cfg["omega_z_max"]
+        else:
+          print("No max angular velocity z specfied in " + cfg_f)
+        
+        if "thrust_min" in cfg:
+          self._T_min = cfg["thrust_min"]
+        else:
+          print("No min thrust specified in " + cfg_f)
+        if "thrust_max" in cfg:
+          self._T_max = cfg["thrust_max"]
+        else:
+          print("No max thrust specified in " +cfg_f)
+
 #
 #   T1    T3
 #     \  /
@@ -226,7 +248,6 @@ class QuadrotorModel(object):
 #     /  \
 #   T4    T2
 #
-
     def dynamics(self):
         px, py, pz = ca.SX.sym('px'), ca.SX.sym('py'), ca.SX.sym('pz')
         vx, vy, vz = ca.SX.sym('vx'), ca.SX.sym('vy'), ca.SX.sym('vz')
@@ -288,7 +309,9 @@ class QuadrotorModel(object):
         U = ca.SX.sym("U", f.size1_in(1))
         dt = ca.SX.sym('dt')
         
-        X1 = RK4(f, X0, U, dt, 1)
+        # X1 = RK4(f, X0, U, dt, 1)
+        X1 = EulerIntegral(f, X0, U, dt, 1)
+        
         q_l = ca.sqrt(X1[6:10].T@X1[6:10])
         X1[6:10] = X1[6:10]/q_l
         
@@ -498,7 +521,9 @@ class RPG_Quad:
         U = ca.SX.sym("U", f.size1_in(1))
         dt = ca.SX.sym('dt')
         
-        X1 = EulerIntegral(f, X0, U, dt, 1)
+        # X1 = EulerIntegral(f, X0, U, dt, 1)
+        X1 = RK4(f, X0, U, dt, 1)
+
         q_l = ca.sqrt(X1[6:10].T@X1[6:10])
         X1[6:10] = X1[6:10]/q_l
         
