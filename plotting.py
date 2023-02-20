@@ -2,6 +2,7 @@ import numpy as np
 import csv
 import yaml
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
 
 class Trajectory():
     def __init__(self, csv_f):
@@ -63,10 +64,10 @@ if __name__ == "__main__":
     ax_3d.set_xlabel("X[m]")
     ax_3d.set_ylabel("Y[m]")
     ax_3d.set_zlabel("Z[m]")
-
     ax_3d.view_init(elev=200, azim=-15)
 
     gates.plot3d(ax_3d)
+    
     ax_3d.plot(traj._pos[:,0], traj._pos[:,1], traj._pos[:,2])
 
     ax_3d.set_aspect("equal")
@@ -75,6 +76,18 @@ if __name__ == "__main__":
     fig2 = plt.figure("gate")
     ax_xy = fig2.add_subplot()
     gates.plot2d(ax_xy)
+
+    traj_linesegment = np.stack((traj._pos[:-1, :2], traj._pos[1:, :2]), axis=1)
+    vel_min = np.min(traj._vel[:-1,3])
+    vel_max = np.max(traj._vel[:-1,3])
+    norm = plt.Normalize(vel_min, vel_max)
+    # traj_colors = plt.colormaps["jet"]((traj._vel[:-1, 3]-vel_min)/(vel_max-vel_min))
+    traj_linecollection = LineCollection(traj_linesegment, cmap="jet", linewidth=3, norm=norm)
+    traj_linecollection.set_array(traj._vel[:-1, 3])
+    line = ax_xy.add_collection(traj_linecollection)
+    # ax_xy.plot(traj._pos[:,0], traj._pos[:,1])
+    fig2.colorbar(line)
+
     ax_xy.set_xlim([-10, 10])
     ax_xy.set_ylim([-10, 10])
     ax_xy.set_aspect("equal")
