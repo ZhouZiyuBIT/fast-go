@@ -258,40 +258,49 @@ class WayPointOpt():
         self._xut0 = res['x'].full().flatten()
         return res
 
+import csv
+def save_traj(res, opt: WayPointOpt, csv_f):
+    with open(csv_f, 'w') as f:
+        traj_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        labels = ['t',
+                  "p_x", "p_y", "p_z",
+                  "v_x", "v_y", "v_z",
+                  "q_w", "q_x", "q_y", "q_z",
+                  "w_x", "w_y", "w_z",
+                  "u_1", "u_2", "u_3", "u_4"]
+        traj_writer.writerow(labels)
+        x = res['x'].full().flatten()
+        
+        t = 0
+        s = x[(opt._Herizon-1)*opt._X_dim: opt._Herizon*opt._X_dim]
+        u = x[opt._Herizon*opt._X_dim: opt._Herizon*opt._X_dim+opt._U_dim]
+        traj_writer.writerow([t, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], u[0], u[1], u[2], u[3]])
+        for i in range(opt._wp_num):
+            dt = x[-opt._wp_num+i]
+            for j in range(opt._N_per_wp):
+                idx = i*opt._N_per_wp+j
+                t += dt
+                s = x[idx*opt._X_dim: (idx+1)*opt._X_dim]
+                if idx != opt._Herizon-1:
+                    u = x[opt._Herizon*opt._X_dim+(idx+1)*opt._U_dim: opt._Herizon*opt._X_dim+(idx+2)*opt._U_dim]
+                else:
+                    u = [0,0,0,0]
+                traj_writer.writerow([t, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], u[0], u[1], u[2], u[3]])
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    xinit = np.array([-5,4.5,1.2, 0,0,0, 1,0,0,0, 0,0,0])
-    wp = np.array([[-1.1, -1.6, 3.6],
-        [9.2, 6.6, 1.0],
-        [9.2, -4.0, 1.2],
-        [-4.5, -6.0, 3.5]]
-        # [-4.5, -6.0, 0.8],
-        # [4.75, -0.9, 1.2],
-        # [-2.8, 6.8, 1.2],
-        # [4.75, -0.9, 1.2]]
-                  )
-    dts = np.array([0.2]*4)
+    from plotting import GatesShape
+    xinit = np.array([0,0,0, 0,0,0, 1,0,0,0, 0,0,0])
+    gate = GatesShape("./gates.yaml")
+
+    dts = np.array([0.2]*gate._N)
     
     quad = QuadrotorModel('quad.yaml')
-    # quad = RPG_Quad('rpg_quad.yaml')
     
     wp_opt = WayPointOpt(quad, 4, loop=True)
     wp_opt.define_opt()
     wp_opt.define_opt_t()
     
-    res = wp_opt.solve_opt(xinit, wp.flatten(), dts)
-    res_t = wp_opt.solve_opt_t(xinit, wp.flatten())
-    # wp[2][0] += 1
-    # res_t = wp_opt.solve_opt_t(xinit, wp.flatten())
-    
-    plot_pos = np.zeros((3, wp_opt._Herizon))
-    plot_pos_t = np.zeros((3, wp_opt._Herizon))
-    for i in range(wp_opt._Herizon):
-        x = res['x'].full().flatten()
-        plot_pos[:, i] = x[wp_opt._X_dim*i+0:wp_opt._X_dim*i+3]
-        x_t = res_t['x'].full().flatten()
-        plot_pos_t[:, i] = x_t[wp_opt._X_dim*i+0:wp_opt._X_dim*i+3]
-    plt.scatter(wp[:,0], wp[:,1])
-    plt.plot(plot_pos[0,:], plot_pos[1,:])
-    plt.plot(plot_pos_t[0,:], plot_pos_t[1,:])
-    plt.show()
+    res = wp_opt.solve_opt(xinit, gate._pos.flatten(), dts)
+    res_t = wp_opt.solve_opt_t(xinit, gate._pos.flatten())
+    save_traj(res_t, wp_opt, "./res.csv")
