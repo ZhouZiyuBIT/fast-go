@@ -138,7 +138,7 @@ class WayPointOpt():
 
             self._nlp_g_wp_p += [ (self._Xs[:3,(i+1)*self._N_per_wp-1]-self._WPs_p[:,i]).T@(self._Xs[:3,(i+1)*self._N_per_wp-1]-self._WPs_p[:,i]) ]
             self._nlp_lbg_wp_p += [0]
-            self._nlp_ubg_wp_p += [ 0.09 ]
+            self._nlp_ubg_wp_p += [ 0.0001 ]
 
             self._nlp_p_dt += [ self._DTs[i] ]
             self._nlp_p_wp_p += [ self._WPs_p[:,i] ]
@@ -297,10 +297,11 @@ if __name__ == "__main__":
     
     quad = QuadrotorModel('quad.yaml')
     
-    wp_opt = WayPointOpt(quad, 4, loop=True)
+    wp_opt = WayPointOpt(quad, gate._N, loop=True)
     wp_opt.define_opt()
     wp_opt.define_opt_t()
     
     res = wp_opt.solve_opt(xinit, gate._pos.flatten(), dts)
     res_t = wp_opt.solve_opt_t(xinit, gate._pos.flatten())
-    save_traj(res_t, wp_opt, "./res.csv")
+    save_traj(res, wp_opt, "./res.csv")
+    save_traj(res_t, wp_opt, "./res_t.csv")

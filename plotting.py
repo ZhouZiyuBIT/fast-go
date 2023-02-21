@@ -40,21 +40,44 @@ class Trajectory():
             traj_seg[i,:] = self._pos[(idx+int(i*1.0))%self._N]
         return traj_seg
     
-    def plot_pos_xy(self, axis, with_colorbar=False):
+    def plot_pos_xy(self, axes:plt.Axes, with_colorbar=False, other_traj=0):
         if with_colorbar:
             traj_linesegment = np.stack((self._pos[:-1, :2], self._pos[1:, :2]), axis=1)
             vel_min = np.min(self._vel[:-1,3])
             vel_max = np.max(self._vel[:-1,3])
             norm = plt.Normalize(vel_min, vel_max)
-            traj_linecollection = LineCollection(traj_linesegment, cmap="jet", linewidth=3, norm=norm)
-            traj_linecollection.set_array(traj._vel[:-1, 3])
-            line = axis.add_collection(traj_linecollection)
-            fig2.colorbar(line)
+            traj_linecollection = LineCollection(traj_linesegment, cmap="jet", linewidth=3, norm=norm, linestyles='-', label="Traj: Time-optimal")
+            traj_linecollection.set_array(self._vel[:-1, 3])
+            line = axes.add_collection(traj_linecollection)
+            if other_traj != 0:
+                other_traj_linesegment = np.stack((other_traj._pos[:-1, :2], other_traj._pos[1:, :2]), axis=1)
+                traj_linecollection = LineCollection(other_traj_linesegment, cmap="jet", linewidth=3, norm=norm, linestyles=":", label="Traj: Warm-up")
+                traj_linecollection.set_array(other_traj._vel[:-1, 3])
+                line = axes.add_collection(traj_linecollection)
+            plt.legend(loc="lower right")
+            plt.colorbar(line, label='Velocity [m/s]')
         else:
-            axis.plot(self._pos[:,0], self._pos[:,1])
-        axis.set_xlim([-10, 10])
-        axis.set_ylim([-10, 10])
-        axis.set_aspect("equal")
+            axes.plot(self._pos[:,0], self._pos[:,1])
+        axes.set_xlim([-10, 10])
+        axes.set_ylim([-10, 10])
+        axes.set_xlabel("X [m]", labelpad=5)
+        axes.set_ylabel("Y [m]", labelpad=-10)
+        axes.set_aspect("equal")
+    
+    def plot_pos_3d(self, ax_3d):
+        ax_3d.set_xlim((-10.5,10.5))
+        ax_3d.set_ylim((-10.5,10.5))
+        ax_3d.set_zlim((-4.5,0.5))
+        # ax_3d.set_xticks([-10, -8, -6, -4, -2, 0, 2, 4, 6, 8, 10])
+        ax_3d.set_zticks([-4.0, -2.0, 0.0])
+        ax_3d.tick_params(pad=0, labelrotation=0)
+        ax_3d.set_xlabel("X [m]", labelpad=8, rotation=0)
+        ax_3d.set_ylabel("Y [m]", labelpad=8, rotation=0)
+        ax_3d.set_zlabel("Z [m]", labelpad=-2, rotation=0)
+        ax_3d.view_init(elev=200, azim=-15)
+
+        ax_3d.plot(self._pos[:,0], self._pos[:,1], self._pos[:,2])
+        ax_3d.set_aspect("equal")
 
 class GatesShape():
     def __init__(self, yaml_f):
@@ -76,38 +99,30 @@ class GatesShape():
     
     def plot3d(self, axes):
         for idx in range(self._N):
-            axes.plot(self._shapes[idx][0], self._shapes[idx][1], self._shapes[idx][2], linewidth=3, color="firebrick")
-    
-    def plot2d(self, axes):
+            axes.plot(self._shapes[idx][0], self._shapes[idx][1], self._shapes[idx][2], linewidth=3, color="dimgray")
+
+    def plot2d(self, axes:plt.Axes):
         for idx in range(self._N):
-            axes.plot(self._shapes[idx][0], self._shapes[idx][1], linewidth=3, color="firebrick")
+            axes.plot(self._shapes[idx][0], self._shapes[idx][1], linewidth=3, color="dimgray")
 
 if __name__ == "__main__":
     traj = Trajectory("./res.csv")
+    traj_t = Trajectory("./res_t.csv")
     gates = GatesShape("./gates.yaml")
 
-    fig = plt.figure("3d")
-    ax_3d = fig.add_subplot(projection="3d")
-    ax_3d.set_xlim((-10,10))
-    ax_3d.set_ylim((-10,10))
-    ax_3d.set_zlim((-4,0))
-    ax_3d.set_zticks([-4, -3, -2, -1, 0])
-    ax_3d.set_xlabel("X[m]")
-    ax_3d.set_ylabel("Y[m]")
-    ax_3d.set_zlabel("Z[m]")
-    ax_3d.view_init(elev=200, azim=-15)
+    fig = plt.figure("3d", figsize=(10,6))
+    ax_3d = fig.add_subplot([0,0,1,1], projection="3d")
 
     gates.plot3d(ax_3d)
-    
-    ax_3d.plot(traj._pos[:,0], traj._pos[:,1], traj._pos[:,2])
+    traj.plot_pos_3d(ax_3d)
+    traj_t.plot_pos_3d(ax_3d)
 
-    ax_3d.set_aspect("equal")
-    fig.savefig("test.eps", dpi=600)
+    # fig.savefig("test.eps", dpi=600)
 
     fig2 = plt.figure("gate")
     ax_xy = fig2.add_subplot()
     gates.plot2d(ax_xy)
+    # traj_t.plot_pos_xy(ax_xy, with_colorbar=True, other_traj=traj)
+    traj_t.plot_pos_xy(ax_xy)
 
-    traj.plot_pos_xy(ax_xy, with_colorbar=True)
-    
     plt.show()
