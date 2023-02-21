@@ -55,7 +55,7 @@ class TrackerOpt():
         self._l = ca.SX.sym('l', self._Herizon)
         
         self._X_init = ca.SX.sym("X_init", self._X_dim)
-        self._trj_N = 40
+        self._trj_N = 30
         self._Trj_p = ca.SX.sym("Trj_p", 3, self._trj_N)
         self._Trj_yaw = ca.SX.sym("Trj_yaw", 1, self._trj_N)
         self._Trj_p_ls = [0]
@@ -196,7 +196,7 @@ class TrackerOpt():
         nlp_dect = {
             'f': -1*self._nlp_obj_l+30*(self._nlp_obj_trjp),#+30*self._nlp_obj_trjyaw,
             'x': ca.vertcat(*(self._nlp_x_x+self._nlp_x_u+self._nlp_x_l)),
-            'p': ca.vertcat(*(self._nlp_p_xinit+self._nlp_p_Trj_p+self._nlp_p_Trj_yaw)),
+            'p': ca.vertcat(*(self._nlp_p_xinit+self._nlp_p_Trj_p)),
             'g': ca.vertcat(*(self._nlp_g_dyn+self._nlp_g_l)),
         }
         self._opt_solver = ca.nlpsol('opt', 'ipopt', nlp_dect, self._opt_option)
@@ -204,11 +204,10 @@ class TrackerOpt():
         self.reset_xul()
         
     
-    def solve(self, xinit, Trjp, Trjyaw):
-        p = np.zeros(self._X_dim+4*self._trj_N)
+    def solve(self, xinit, Trjp):
+        p = np.zeros(self._X_dim+3*self._trj_N)
         p[:self._X_dim] = xinit
         p[self._X_dim:self._X_dim+3*self._trj_N] = Trjp
-        p[self._X_dim+3*self._trj_N:self._X_dim+3*self._trj_N+self._trj_N] = Trjyaw
         res = self._opt_solver(
             x0=self._xul0,
             lbx=(self._nlp_lbx_x+self._nlp_lbx_u+self._nlp_lbx_l),
@@ -231,7 +230,6 @@ if __name__ == "__main__":
     
     xinit = np.array([0,0,0, 0,0,0, 1,0,0,0, 0,0,0])
     trjp = np.zeros(20*3)
-    trjyaw = np.zeros(20)
     plot_x = np.zeros(20)
     plot_y = np.zeros(20)
     
@@ -241,6 +239,6 @@ if __name__ == "__main__":
         plot_x[i] = trjp[3*i+0]
         plot_y[i] = trjp[3*i+1]
     
-    res = tracker.solve(xinit, trjp, trjyaw)
+    res = tracker.solve(xinit, trjp)
     x = res['x'].full().flatten()
     print(x[-5:])

@@ -40,7 +40,7 @@ class Trajectory():
             traj_seg[i,:] = self._pos[(idx+int(i*1.0))%self._N]
         return traj_seg
     
-    def plot_pos_xy(self, axes:plt.Axes, with_colorbar=False, other_traj=0):
+    def plot_pos_xy(self, axes:plt.Axes, with_colorbar=False, other_traj=0, linestyle="", label=""):
         if with_colorbar:
             traj_linesegment = np.stack((self._pos[:-1, :2], self._pos[1:, :2]), axis=1)
             vel_min = np.min(self._vel[:-1,3])
@@ -57,7 +57,8 @@ class Trajectory():
             plt.legend(loc="upper right")
             plt.colorbar(line, label='Velocity [m/s]')
         else:
-            axes.plot(self._pos[:,0], self._pos[:,1])
+            axes.plot(self._pos[:,0], self._pos[:,1], linewidth=3, linestyle=linestyle, label=label)
+            plt.legend()
         axes.set_xlim([-10, 10])
         axes.set_ylim([-10, 10])
         axes.set_xlabel("X [m]", labelpad=5)
@@ -79,7 +80,7 @@ class Trajectory():
         ax_3d.plot(self._pos[:,0], self._pos[:,1], self._pos[:,2])
         ax_3d.set_aspect("equal")
 
-class GatesShape():
+class Gates():
     def __init__(self, yaml_f):
         with open(yaml_f, 'r') as f:
             gf = yaml.load(f, Loader=yaml.FullLoader)
@@ -106,10 +107,12 @@ class GatesShape():
             axes.plot(self._shapes[idx][0], self._shapes[idx][1], linewidth=3, color="dimgray")
 
 if __name__ == "__main__":
-    traj = Trajectory("./res.csv")
-    traj_t = Trajectory("./res_t.csv")
-    traj_track = Trajectory("./track_res.csv")
-    gates = GatesShape("./gates.yaml")
+
+    traj = Trajectory("./results/res_n8.csv")
+    traj_t = Trajectory("./results/res_t_n8.csv")
+    traj_track = Trajectory("./results/res_track_n8.csv")
+    rpg_n6 = Trajectory("./rpg_results/result_n6.csv")
+    gates = Gates("./gates/gates_n8.yaml")
 
     fig = plt.figure("3d", figsize=(10,6))
     ax_3d = fig.add_subplot([0,0,1,1], projection="3d")
@@ -123,8 +126,10 @@ if __name__ == "__main__":
     fig2 = plt.figure("gate")
     ax_xy = fig2.add_subplot()
     gates.plot2d(ax_xy)
-    traj_t.plot_pos_xy(ax_xy, with_colorbar=True, other_traj=traj)
+    # traj_t.plot_pos_xy(ax_xy, with_colorbar=True, other_traj=traj)
+    traj_t.plot_pos_xy(ax_xy, linestyle="--", label="Planner")
+    # rpg_n6.plot_pos_xy(ax_xy, linestyle="--", label="CPC")
     # traj_t.plot_pos_xy(ax_xy)
-    # traj_track.plot_pos_xy(ax_xy, with_colorbar=True)
+    traj_track.plot_pos_xy(ax_xy, with_colorbar=True)
 
     plt.show()
