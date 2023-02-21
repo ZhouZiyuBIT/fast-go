@@ -54,7 +54,7 @@ class Trajectory():
                 traj_linecollection = LineCollection(other_traj_linesegment, cmap="jet", linewidth=3, norm=norm, linestyles=":", label="Traj: Warm-up")
                 traj_linecollection.set_array(other_traj._vel[:-1, 3])
                 line = axes.add_collection(traj_linecollection)
-            plt.legend(loc="lower right")
+            plt.legend(loc="upper right")
             plt.colorbar(line, label='Velocity [m/s]')
         else:
             axes.plot(self._pos[:,0], self._pos[:,1])
@@ -108,6 +108,7 @@ class GatesShape():
 if __name__ == "__main__":
     traj = Trajectory("./res.csv")
     traj_t = Trajectory("./res_t.csv")
+    traj_track = Trajectory("./track_res.csv")
     gates = GatesShape("./gates.yaml")
 
     fig = plt.figure("3d", figsize=(10,6))
@@ -122,7 +123,8 @@ if __name__ == "__main__":
     fig2 = plt.figure("gate")
     ax_xy = fig2.add_subplot()
     gates.plot2d(ax_xy)
-    # traj_t.plot_pos_xy(ax_xy, with_colorbar=True, other_traj=traj)
-    traj_t.plot_pos_xy(ax_xy)
+    traj_t.plot_pos_xy(ax_xy, with_colorbar=True, other_traj=traj)
+    # traj_t.plot_pos_xy(ax_xy)
+    # traj_track.plot_pos_xy(ax_xy, with_colorbar=True)
 
     plt.show()

@@ -6,10 +6,10 @@ from quadrotor import QuadrotorModel, QuadrotorSim
 from tracker import TrackerOpt
 
 # trajector
-trjyaw = np.zeros(20)
+trjyaw = np.zeros(40)
 
 from plotting import Trajectory
-traj = Trajectory("./res.csv")
+traj = Trajectory("./res_t.csv")
 
 quad = QuadrotorModel('quad.yaml')
 tracker = TrackerOpt(quad)
@@ -17,12 +17,31 @@ q_sim = QuadrotorSim(quad)
 tracker.define_opt()
 tracker.reset_xul()
 
+import csv
+class TrajLog():
+    def __init__(self, path):
+        self._fd = open(path, 'w')
+        self._traj_writer = csv.writer(self._fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        labels = ['t',
+                  "p_x", "p_y", "p_z",
+                  "v_x", "v_y", "v_z",
+                  "q_w", "q_x", "q_y", "q_z",
+                  "w_x", "w_y", "w_z",
+                  "u_1", "u_2", "u_3", "u_4"]
+        self._traj_writer.writerow(labels)
+    def log(self, t, s, u):
+        self._traj_writer.writerow([t, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], u[0], u[1], u[2], u[3]])
+
+    def __del__(self):
+        self._fd.close()
+
 # 10s
-plot_quad_xy = np.zeros((2,1000))
-for t in range(1000):
+plot_quad_xy = np.zeros((2,2000))
+traj_log = TrajLog("./track_res.csv")
+for t in range(2000):
     plot_quad_xy[0,t] = q_sim._X[0]
     plot_quad_xy[1,t] = q_sim._X[1]
-    
+
     trjp = traj.sample(tracker._trj_N, q_sim._X[:3]).reshape(-1)
     res = tracker.solve(q_sim._X, trjp, trjyaw)
     x = res['x'].full().flatten()
@@ -33,7 +52,7 @@ for t in range(1000):
     u[2] = x[11]
     u[3] = x[12]
     q_sim.step10ms(u)
-
+    traj_log.log(t*0.01, q_sim._X[:13], u)
     # q_sim._T[0] = x[10*13+0]
     # q_sim._T[1] = x[10*13+1]
     # q_sim._T[2] = x[10*13+2]

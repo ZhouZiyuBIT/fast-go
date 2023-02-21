@@ -17,14 +17,15 @@ def rotate_quat(q1,v1):
     return ca.vertcat(ans[1,:], ans[2,:], ans[3,:]) # to covert to 3x1 vec
 
 class WayPointOpt():
-    def __init__(self, quad:QuadrotorSimpleModel, wp_num:int, loop:bool):
+    def __init__(self, quad:QuadrotorSimpleModel, wp_num:int, loop:bool, N_per_wp=40):
         self._loop = loop
         
         self._quad = quad
         self._ddynamics = self._quad.ddynamics_dt()
 
+        self._tol = 0.3
         self._wp_num = wp_num
-        self._N_per_wp = 40 # opt param
+        self._N_per_wp = N_per_wp # opt param
         self._Herizon = self._wp_num*self._N_per_wp
 
         self._X_dim = self._ddynamics.size1_in(0)
@@ -138,7 +139,7 @@ class WayPointOpt():
 
             self._nlp_g_wp_p += [ (self._Xs[:3,(i+1)*self._N_per_wp-1]-self._WPs_p[:,i]).T@(self._Xs[:3,(i+1)*self._N_per_wp-1]-self._WPs_p[:,i]) ]
             self._nlp_lbg_wp_p += [0]
-            self._nlp_ubg_wp_p += [ 0.0001 ]
+            self._nlp_ubg_wp_p += [ self._tol*self._tol ]
 
             self._nlp_p_dt += [ self._DTs[i] ]
             self._nlp_p_wp_p += [ self._WPs_p[:,i] ]
@@ -297,7 +298,7 @@ if __name__ == "__main__":
     
     quad = QuadrotorModel('quad.yaml')
     
-    wp_opt = WayPointOpt(quad, gate._N, loop=True)
+    wp_opt = WayPointOpt(quad, gate._N, loop=True, N_per_wp=40)
     wp_opt.define_opt()
     wp_opt.define_opt_t()
     

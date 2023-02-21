@@ -55,7 +55,7 @@ class TrackerOpt():
         self._l = ca.SX.sym('l', self._Herizon)
         
         self._X_init = ca.SX.sym("X_init", self._X_dim)
-        self._trj_N = 20
+        self._trj_N = 40
         self._Trj_p = ca.SX.sym("Trj_p", 3, self._trj_N)
         self._Trj_yaw = ca.SX.sym("Trj_yaw", 1, self._trj_N)
         self._Trj_p_ls = [0]
