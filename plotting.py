@@ -24,6 +24,37 @@ class Trajectory():
         self._vel = np.array(vel)
         self._quaternion = np.array(quaternion)
         self._omega = np.array(omega)
+        self._N = self._pos.shape[0]-1
+
+    def sample(self, n, pos):
+        idx = 0
+        lmin = 1000000
+        for i in range(self._N):
+            l = np.linalg.norm(pos-self._pos[i])
+            if l < lmin:
+                lmin = l
+                idx=i
+        
+        traj_seg = np.zeros((n, 3))
+        for i in range(n):
+            traj_seg[i,:] = self._pos[(idx+int(i*1.0))%self._N]
+        return traj_seg
+    
+    def plot_pos_xy(self, axis, with_colorbar=False):
+        if with_colorbar:
+            traj_linesegment = np.stack((self._pos[:-1, :2], self._pos[1:, :2]), axis=1)
+            vel_min = np.min(self._vel[:-1,3])
+            vel_max = np.max(self._vel[:-1,3])
+            norm = plt.Normalize(vel_min, vel_max)
+            traj_linecollection = LineCollection(traj_linesegment, cmap="jet", linewidth=3, norm=norm)
+            traj_linecollection.set_array(traj._vel[:-1, 3])
+            line = axis.add_collection(traj_linecollection)
+            fig2.colorbar(line)
+        else:
+            axis.plot(self._pos[:,0], self._pos[:,1])
+        axis.set_xlim([-10, 10])
+        axis.set_ylim([-10, 10])
+        axis.set_aspect("equal")
 
 class GatesShape():
     def __init__(self, yaml_f):
@@ -77,18 +108,6 @@ if __name__ == "__main__":
     ax_xy = fig2.add_subplot()
     gates.plot2d(ax_xy)
 
-    traj_linesegment = np.stack((traj._pos[:-1, :2], traj._pos[1:, :2]), axis=1)
-    vel_min = np.min(traj._vel[:-1,3])
-    vel_max = np.max(traj._vel[:-1,3])
-    norm = plt.Normalize(vel_min, vel_max)
-    # traj_colors = plt.colormaps["jet"]((traj._vel[:-1, 3]-vel_min)/(vel_max-vel_min))
-    traj_linecollection = LineCollection(traj_linesegment, cmap="jet", linewidth=3, norm=norm)
-    traj_linecollection.set_array(traj._vel[:-1, 3])
-    line = ax_xy.add_collection(traj_linecollection)
-    # ax_xy.plot(traj._pos[:,0], traj._pos[:,1])
-    fig2.colorbar(line)
-
-    ax_xy.set_xlim([-10, 10])
-    ax_xy.set_ylim([-10, 10])
-    ax_xy.set_aspect("equal")
+    traj.plot_pos_xy(ax_xy, with_colorbar=True)
+    
     plt.show()
