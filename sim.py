@@ -6,7 +6,7 @@ import csv
 from quadrotor import QuadrotorModel, QuadrotorSim
 from tracker import TrackerOpt
 
-from plotting import Trajectory
+from plotting import Trajectory, Gates
 
 class TrajLog():
     def __init__(self, path):
@@ -26,37 +26,42 @@ class TrajLog():
         self._fd.close()
 
 traj = Trajectory("./results/res_t_n8.csv")
-
+traj_log = TrajLog("./results/res_track_n8.csv")
+gates = Gates("./gates/gates_n8.yaml")
 quad = QuadrotorModel('quad.yaml')
 tracker = TrackerOpt(quad)
 q_sim = QuadrotorSim(quad)
+q_sim._X[:3] = gates._pos[0]-1
 tracker.define_opt()
 tracker.reset_xul()
-traj_log = TrajLog("./results/res_track_n8.csv")
 # 10s
-plot_quad_xy = np.zeros((2,1000))
-for t in range(1000):
+plot_quad_xy = np.zeros((2,5000))
+for t in range(5000):
     plot_quad_xy[0,t] = q_sim._X[0]
     plot_quad_xy[1,t] = q_sim._X[1]
 
     trjp = traj.sample(tracker._trj_N, q_sim._X[:3]).reshape(-1)
+    if t>4990:
+        print(trjp)
     res = tracker.solve(q_sim._X, trjp)
     x = res['x'].full().flatten()
     
-    u = np.zeros(4)
-    u[0] = (x[tracker._Herizon*13+0]+x[tracker._Herizon*13+1]+x[tracker._Herizon*13+2]+x[tracker._Herizon*13+3])/4
-    u[1] = x[10]
-    u[2] = x[11]
-    u[3] = x[12]
-    q_sim.step10ms(u)
-    q_sim.step10ms(u)
-    traj_log.log(t*0.01, q_sim._X[:13], u)
-    # q_sim._T[0] = x[10*13+0]
-    # q_sim._T[1] = x[10*13+1]
-    # q_sim._T[2] = x[10*13+2]
-    # q_sim._T[3] = x[10*13+3]
-    # for _ in range(10):
-    #     q_sim.step1ms()
+    # u = np.zeros(4)
+    # u[0] = 1.0*(x[tracker._Herizon*13+0]+x[tracker._Herizon*13+1]+x[tracker._Herizon*13+2]+x[tracker._Herizon*13+3])/4
+    # u[1] = x[10]
+    # u[2] = x[11]
+    # u[3] = x[12]
+    # q_sim.step10ms(u)
+    # q_sim.step10ms(u)
+    # traj_log.log(t*0.01, q_sim._X[:13], u)
+
+    q_sim._T[0] = x[10*13+0]
+    q_sim._T[1] = x[10*13+1]
+    q_sim._T[2] = x[10*13+2]
+    q_sim._T[3] = x[10*13+3]
+    for _ in range(10):
+        q_sim.step1ms()
+    traj_log.log(t*0.01, q_sim._X[:13], q_sim._T)
     
     print(x[-tracker._Herizon:])
     

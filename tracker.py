@@ -41,7 +41,7 @@ class TrackerOpt():
         self._Herizon = 10
         self._ddynamics = []
         for n in range(self._Herizon):
-            self._ddynamics += [self._quad.ddynamics(0.03+n*0.04)]
+            self._ddynamics += [self._quad.ddynamics(0.1+n*0.0)]
         
         self._X_dim = self._ddynamics[0].size1_in(0)
         self._U_dim = self._ddynamics[0].size1_in(1)
