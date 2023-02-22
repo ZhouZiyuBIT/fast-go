@@ -118,7 +118,7 @@ if __name__ == "__main__":
     ax_3d = fig.add_subplot([0,0,1,1], projection="3d")
 
     gates.plot3d(ax_3d)
-    traj.plot_pos_3d(ax_3d)
+    # traj.plot_pos_3d(ax_3d)
     traj_t.plot_pos_3d(ax_3d)
 
     # fig.savefig("test.eps", dpi=600)

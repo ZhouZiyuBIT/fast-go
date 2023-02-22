@@ -54,20 +54,20 @@ class WayPointOpt():
         self._cost_WP_p = ca.diag([1,1,1]) # opt param
 
         self._opt_option = {
-            'verbose': False,
+            # 'verbose': False,
             'ipopt.tol': 1e-3,
             # 'ipopt.acceptable_tol': 1e-8,
             'ipopt.max_iter': 1000,
             'ipopt.warm_start_init_point': 'yes',
-            # 'ipopt.print_level': 0,
+            'ipopt.print_level': 0,
         }
         self._opt_t_option = {
-            'verbose': False,
+            # 'verbose': False,
             # 'ipopt.tol': 1e-2,
             # 'ipopt.acceptable_tol': 1e-2,
             'ipopt.max_iter': 1000,
             # 'ipopt.warm_start_init_point': 'yes',
-            # 'ipopt.print_level': 0
+            'ipopt.print_level': 3
         }
 
         #################################################################
@@ -284,7 +284,9 @@ def optimation(nx, quad):
     wp_opt.define_opt()
     wp_opt.define_opt_t()
     
+    print("\n\nWarm-up start ......\n")
     res = wp_opt.solve_opt([], gate._pos.flatten(), dts)
+    print("\n\nTime optimization start ......\n")
     res_t = wp_opt.solve_opt_t([], gate._pos.flatten())
     save_traj(res, wp_opt, "./results/res_"+nx+".csv")
     save_traj(res_t, wp_opt, "./results/res_t_"+nx+".csv")
