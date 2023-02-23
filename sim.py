@@ -25,9 +25,9 @@ class TrajLog():
     def __del__(self):
         self._fd.close()
 
-traj = Trajectory("./results/res_t_n8.csv")
-traj_log = TrajLog("./results/res_track_n8.csv")
-gates = Gates("./gates/gates_n8.yaml")
+traj = Trajectory("./results/res_t_n6.csv")
+traj_log = TrajLog("./results/res_track_n6.csv")
+gates = Gates("./gates/gates_n6.yaml")
 quad = QuadrotorModel('quad.yaml')
 tracker = TrackerOpt(quad)
 q_sim = QuadrotorSim(quad)

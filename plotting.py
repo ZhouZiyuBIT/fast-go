@@ -153,7 +153,7 @@ def plot_tracked(gates:Gates, traj_planned:Trajectory, traj_tracked:Trajectory):
 def plot_track_vel(gates:Gates, traj_planned:Trajectory, traj_tracked:Trajectory, first_gate_pos):
 
     loops = traj_tracked.divide_loops(first_gate_pos)
-
+    print(len(loops))
     gs = GridSpec(20,21)
     fig = plt.figure(figsize=(6, 2.8))
 
@@ -229,11 +229,11 @@ def plot_3d(gates:Gates):
 
 if __name__ == "__main__":
 
-    traj = Trajectory("./results/res_n8.csv")
-    traj_t = Trajectory("./results/res_t_n8.csv")
-    traj_track = Trajectory("./results/res_track_n8.csv")
+    traj = Trajectory("./results/res_n6.csv")
+    traj_t = Trajectory("./results/res_t_n6.csv")
+    traj_track = Trajectory("./results/res_track_n6.csv")
     # rpg_n6 = Trajectory("./rpg_results/result_n8.csv")
-    gates = Gates("./gates/gates_n8.yaml")
+    gates = Gates("./gates/gates_n6.yaml")
 
     plot_track_vel(gates, traj_t, traj_track, gates._pos[0])
     plot_tracked(gates, traj_t, traj_track)
