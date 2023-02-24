@@ -4,46 +4,33 @@ import matplotlib.pyplot as plt
 import csv
 
 from quadrotor import QuadrotorModel, QuadrotorSim
-from tracker import TrackerOpt
+from tracker import TrackerOpt, TrackerOpt2
 
-from plotting import Trajectory, Gates
+from trajectory import Trajectory, TrajLog
+from gates.gates import Gates
 
-class TrajLog():
-    def __init__(self, path):
-        self._fd = open(path, 'w')
-        self._traj_writer = csv.writer(self._fd, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        labels = ['t',
-                  "p_x", "p_y", "p_z",
-                  "v_x", "v_y", "v_z",
-                  "q_w", "q_x", "q_y", "q_z",
-                  "w_x", "w_y", "w_z",
-                  "u_1", "u_2", "u_3", "u_4"]
-        self._traj_writer.writerow(labels)
-    def log(self, t, s, u):
-        self._traj_writer.writerow([t, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], u[0], u[1], u[2], u[3]])
+import os, sys
+BASEPATH = os.path.abspath(__file__).split('script', 1)[0]+'script/fast-go/'
 
-    def __del__(self):
-        self._fd.close()
-
-traj = Trajectory("./results/res_t_n6.csv")
-traj_log = TrajLog("./results/res_track_n6.csv")
-gates = Gates("./gates/gates_n6.yaml")
-quad = QuadrotorModel('quad.yaml')
+traj = Trajectory(BASEPATH+"results/res_t_n6.csv")
+traj_log = TrajLog(BASEPATH+"results/res_track_n6.csv")
+gates = Gates(BASEPATH+"gates/gates_n6.yaml")
+quad = QuadrotorModel(BASEPATH+'quad/quad.yaml')
 tracker = TrackerOpt(quad)
 q_sim = QuadrotorSim(quad)
 q_sim._X[:3] = gates._pos[0]-1
 tracker.define_opt()
 tracker.reset_xul()
 # 10s
-plot_quad_xy = np.zeros((2,5000))
-for t in range(5000):
+plot_quad_xy = np.zeros((2,1000))
+for t in range(1000):
     plot_quad_xy[0,t] = q_sim._X[0]
     plot_quad_xy[1,t] = q_sim._X[1]
 
     trjp = traj.sample(tracker._trj_N, q_sim._X[:3]).reshape(-1)
     if t>4990:
         print(trjp)
-    res = tracker.solve(q_sim._X, trjp)
+    res = tracker.solve(q_sim._X, trjp, 20)
     x = res['x'].full().flatten()
     
     # u = np.zeros(4)
@@ -65,8 +52,7 @@ for t in range(5000):
     
     print(x[-tracker._Herizon:])
     
-ax = plt.gca()
-traj.plot_pos_xy(ax)
+plt.plot(traj._pos[:,0], traj._pos[:,1])
 plt.plot(plot_quad_xy[0,:], plot_quad_xy[1,:])
 plt.show()
 

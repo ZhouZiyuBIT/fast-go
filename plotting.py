@@ -1,106 +1,17 @@
-import numpy as np
 import csv
+import numpy as np
 import yaml
+
 import matplotlib.pyplot as plt
+import seaborn as sns
 from matplotlib.collections import LineCollection
 from matplotlib.gridspec import GridSpec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import seaborn as sns
+
+from gates.gates import Gates
+from trajectory import Trajectory
+
 # sns.set()
-
-class Trajectory():
-    def __init__(self, csv_f="", t=np.array([]), pos=np.array([]), vel=np.array([]), quaternion=np.array([]), omega=np.array([]), N=0):
-        if csv_f != "":
-            t = []
-            pos = []
-            vel = []
-            quaternion = []
-            omega = []
-            self._N = 0
-            with open(csv_f, 'r') as f:
-                traj_reader = csv.DictReader(f)
-                for s in traj_reader:
-                    t.append(float(s['t']))
-                    pos.append([ float(s["p_x"]), float(s["p_y"]), float(s["p_z"]) ])
-                    vel.append([ float(s["v_x"]), float(s["v_y"]), float(s["v_z"]), np.sqrt(float(s["v_x"])*float(s["v_x"])+float(s["v_y"])*float(s["v_y"])+float(s["v_z"])*float(s["v_z"])) ])
-                    quaternion.append([ float(s["q_w"]), float(s["q_x"]), float(s["q_y"]), float(s["q_z"]) ])
-                    omega.append([ float(s["w_x"]), float(s["w_y"]), float(s["w_z"]) ])
-            self._t = np.array(t)
-            self._pos = np.array(pos)
-            self._vel = np.array(vel)
-            self._quaternion = np.array(quaternion)
-            self._omega = np.array(omega)
-            self._N = self._pos.shape[0]-1
-        else:
-            self._t = t
-            self._pos = pos
-            self._vel = vel
-            self._quaternion = quaternion
-            self._omega = omega
-            self._N = N
-
-    def __getitem__(self, idx):
-        return Trajectory(t=self._t[idx], pos=self._pos[idx], vel=self._vel[idx], quaternion=self._quaternion[idx], omega=self._omega[idx], N=self._pos[idx].shape[0])
-
-    def sample(self, n, pos):
-        idx = 0
-        lmin = 1000000
-        for i in range(self._N):
-            l = np.linalg.norm(pos-self._pos[i])
-            if l < lmin:
-                lmin = l
-                idx=i
-        
-        traj_seg = np.zeros((n, 3))
-        for i in range(n):
-            traj_seg[i,:] = self._pos[(idx+int(i*1.0))%self._N]
-        return traj_seg
-    
-    def divide_loops(self, pos):
-        loop_idx = []
-        flag1 = 0
-        flag2 = 0
-        for i in range(self._N):
-            if np.linalg.norm(self._pos[i]-pos)< 0.5:
-                if flag1 == 0:
-                    l = np.linalg.norm(self._pos[i] - pos)
-                    flag1 = 1
-                else:
-                    if l<np.linalg.norm(self._pos[i] - pos):
-                        if flag2 == 0:
-                            loop_idx.append(i)
-                            flag2 = 1
-                l = np.linalg.norm(self._pos[i] - pos)
-            else:
-                flag1 = 0
-                flag2 = 0
-        
-        if len(loop_idx)>1:
-            loops = [self[0:loop_idx[1]]]
-            for i in range(1, len(loop_idx)-1):
-                loops.append(self[loop_idx[i]: loop_idx[i+1]])
-                print(self[loop_idx[i]: loop_idx[i+1]]._pos)
-            return loops
-        else:
-            return [self]
-
-class Gates():
-    def __init__(self, yaml_f):
-        with open(yaml_f, 'r') as f:
-            gf = yaml.load(f, Loader=yaml.FullLoader)
-            self._pos = np.array(gf["pos"])
-            self._rot = np.array(gf["rot"])/180*np.pi
-        self._N = self._pos.shape[0]
-        
-        R = 0.5
-        self._shapes = []
-        angles = np.linspace(0, 2*np.pi, 50)
-
-        for idx in range(self._N):
-            x = R*np.cos(angles)*np.cos(self._rot[idx])
-            y = R*np.cos(angles)*np.sin(self._rot[idx])
-            z = R*np.sin(angles)
-            self._shapes.append([x+self._pos[idx][0], y+self._pos[idx][1], z+self._pos[idx][2]])
 
 def plot_gates_3d(axes:plt.Axes, gates:Gates):
     for idx in range(gates._N):
@@ -110,7 +21,7 @@ def plot_gates_2d(axes:plt.Axes, gates:Gates):
     for idx in range(gates._N):
         axes.plot(gates._shapes[idx][0], gates._shapes[idx][1], linewidth=3, color="dimgray")
 
-def plot_traj_xy(axes:plt.Axes, traj:Trajectory, linewidth=1, linestyle="-", label="", color="black", alpha=1):
+def plot_traj_xy(axes:plt.Axes, traj:Trajectory, linewidth=1, linestyle="-", label="", color=None, alpha=1):
     axes.plot(traj._pos[:,0], traj._pos[:,1], linewidth=linewidth, linestyle=linestyle, color=color, alpha=alpha, label=label)
 
 def plot_traj_3d(axes3d, gates:Gates):
@@ -229,11 +140,14 @@ def plot_3d(gates:Gates):
 
 if __name__ == "__main__":
 
-    traj = Trajectory("./results/res_n6.csv")
-    traj_t = Trajectory("./results/res_t_n6.csv")
-    traj_track = Trajectory("./results/res_track_n6.csv")
+    import os, sys
+    BASEPATH = os.path.abspath(__file__).split('script', 1)[0]+'script/fast-go/'
+
+    traj = Trajectory(BASEPATH+"results/res_n6.csv")
+    traj_t = Trajectory(BASEPATH+"results/res_t_n6.csv")
+    traj_track = Trajectory(BASEPATH+"results/res_track_n6.csv")
     # rpg_n6 = Trajectory("./rpg_results/result_n8.csv")
-    gates = Gates("./gates/gates_n6.yaml")
+    gates = Gates(BASEPATH+"gates/gates_n6.yaml")
 
     plot_track_vel(gates, traj_t, traj_track, gates._pos[0])
     plot_tracked(gates, traj_t, traj_track)

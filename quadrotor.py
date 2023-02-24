@@ -297,7 +297,8 @@ class QuadrotorModel(object):
         X0 = ca.SX.sym("X", f.size1_in(0))
         U = ca.SX.sym("U", f.size1_in(1))
         
-        X1 = RK4(f, X0, U, dt, 4)
+        X1 = RK4(f, X0, U, dt, 1)
+        # X1 = EulerIntegral(f, X0, U, dt, 1)
         q_l = ca.sqrt(X1[6:10].T@X1[6:10])
         X1[6:10] = X1[6:10]/q_l
         
