@@ -263,11 +263,11 @@ def save_traj(res, opt: WayPointOpt, csv_f):
 from gates.gates import Gates
 def cal_Ns(gates:Gates, l_per_n:float):
     Ns = []
-    l = np.linalg.norm(gates._pos[0]-gates._pos[-1])
+    l = np.linalg.norm(np.array(gates._pos[0])-np.array(gates._pos[-1]))
     Ns.append(int(l/l_per_n))
 
     for i in range(gates._N-1):
-        l = np.linalg.norm(gates._pos[i]-gates._pos[i+1])
+        l = np.linalg.norm(np.array(gates._pos[i])-np.array(gates._pos[i+1]))
         Ns.append(int(l/l_per_n))
     
     return Ns
