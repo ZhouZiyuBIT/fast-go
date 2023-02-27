@@ -260,7 +260,7 @@ def save_traj(res, opt: WayPointOpt, csv_f):
                     u = [0,0,0,0]
                 traj_writer.writerow([t, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], u[0], u[1], u[2], u[3]])
 
-from plotting import Gates
+from gates.gates import Gates
 def cal_Ns(gates:Gates, l_per_n:float):
     Ns = []
     l = np.linalg.norm(gates._pos[0]-gates._pos[-1])
@@ -292,6 +292,6 @@ def optimation(nx, quad):
     save_traj(res_t, wp_opt, "./results/res_t_"+nx+".csv")
 
 if __name__ == "__main__":    
-    quad = QuadrotorModel('quad.yaml')
+    quad = QuadrotorModel('./quad/quad.yaml')
     
     optimation("n8", quad)

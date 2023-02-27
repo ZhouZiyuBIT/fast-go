@@ -1,6 +1,10 @@
 import casadi as ca
 import numpy as np
 
+import os, sys
+BASEPATH = os.path.abspath(__file__).split('script', 1)[0]+'script/fast-go/'
+sys.path += [BASEPATH]
+
 from quadrotor import QuadrotorModel, QuadrotorSimpleModel
 
 def linear_table(n, t, p0, p:ca.SX):
@@ -176,7 +180,6 @@ class TrackerOpt():
             self._xul0[i*self._X_dim+6] = 1
        
     def define_opt(self):
-        print(self._nlp_obj_l)
         nlp_dect = {
             'f': -1*self._nlp_obj_l+30*(self._nlp_obj_trjp),#+30*self._nlp_obj_trjyaw,
             'x': ca.vertcat(*(self._nlp_x_x+self._nlp_x_u+self._nlp_x_l)),
@@ -335,7 +338,6 @@ class TrackerOpt2():
             self._xul0[i*self._X_dim+6] = 1
        
     def define_opt(self):
-        print(self._nlp_obj_l)
         nlp_dect = {
             'f': self._nlp_obj_v+self._nlp_obj_trjp,#+30*self._nlp_obj_trjyaw,
             'x': ca.vertcat(*(self._nlp_x_x+self._nlp_x_u+self._nlp_x_l)),
@@ -365,23 +367,8 @@ class TrackerOpt2():
         return res
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    quad = QuadrotorModel('quad.yaml')
+    
+    quad = QuadrotorModel(BASEPATH+"quad/quad_real.yaml")
     tracker = TrackerOpt(quad)
     tracker.define_opt()
-    tracker.reset_xul()
-    
-    xinit = np.array([0,0,0, 0,0,0, 1,0,0,0, 0,0,0])
-    trjp = np.zeros(20*3)
-    plot_x = np.zeros(20)
-    plot_y = np.zeros(20)
-    
-    for i in range(20):
-        trjp[3*i+0] = np.sin(i/5)*4
-        trjp[3*i+1] = np.cos(i/3)*3
-        plot_x[i] = trjp[3*i+0]
-        plot_y[i] = trjp[3*i+1]
-    
-    res = tracker.solve(xinit, trjp)
-    x = res['x'].full().flatten()
-    print(x[-5:])
+    tracker._opt_solver.generate_dependencies("tracker_opt.c")
