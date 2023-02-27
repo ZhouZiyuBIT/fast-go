@@ -178,7 +178,11 @@ class TrackerOpt():
         self._xul0[-self._Herizon]=0
         for i in range(self._Herizon):
             self._xul0[i*self._X_dim+6] = 1
-       
+
+    def load_so(self, so_path):
+        self._opt_solver = ca.nlpsol("opt", "ipopt", so_path, self._opt_option)
+        self.reset_xul()
+    
     def define_opt(self):
         nlp_dect = {
             'f': -1*self._nlp_obj_l+30*(self._nlp_obj_trjp),#+30*self._nlp_obj_trjyaw,
