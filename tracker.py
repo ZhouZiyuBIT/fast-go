@@ -372,3 +372,4 @@ if __name__ == "__main__":
     tracker = TrackerOpt(quad)
     tracker.define_opt()
     tracker._opt_solver.generate_dependencies("tracker_opt.c")
+    
