@@ -330,12 +330,12 @@ class QuadrotorSim(object):
         self._X[6] = 1
         self._T = np.zeros(4)
         
-        self._pid_wx = PID(15, 0.2, 0, 3, 5)
-        self._pid_wy = PID(15, 0.2, 0, 3, 5)
-        self._pid_wz = PID(20, 0.3, 0, 3, 5)
+        self._pid_wx = PID(15, 0.2, 0, 7, 7)
+        self._pid_wy = PID(15, 0.2, 0, 7, 7)
+        self._pid_wz = PID(20, 0.3, 0, 7, 7)
         
-        self._T_min = [0,0,0,0]
-        self._T_max = [4.179, 4.179, 4.179, 4.179]
+        self._T_min = quad._T_min
+        self._T_max = quad._T_max
     
     # [thrust, wx, wy, wz]
     def low_ctrl(self, U):
@@ -351,10 +351,10 @@ class QuadrotorSim(object):
         T3 = U[0] - Tx + Ty + Tz
         T4 = U[0] + Tx - Ty + Tz
         
-        self._T[0] = constrain(T1, self._T_min[0], self._T_max[0])
-        self._T[1] = constrain(T2, self._T_min[1], self._T_max[1])
-        self._T[2] = constrain(T3, self._T_min[2], self._T_max[2])
-        self._T[3] = constrain(T4, self._T_min[3], self._T_max[3])
+        self._T[0] = constrain(T1, self._T_min, self._T_max)
+        self._T[1] = constrain(T2, self._T_min, self._T_max)
+        self._T[2] = constrain(T3, self._T_min, self._T_max)
+        self._T[3] = constrain(T4, self._T_min, self._T_max)
     
     # [thrust, wx, wy, wz]
     def step10ms(self, U):
@@ -374,161 +374,6 @@ class QuadrotorSim(object):
         X_ = self._dyn_d(self._X, self._T)
         self._X = X_.full().flatten()
         return self._X
-
-class RPG_Quad:
-    def __init__(self, filename = ""):
-        self.m = 1                                        # mass in [kg]
-        self.l = 1                                        # arm length
-        self.I = ca.DM([(1, 0, 0), (0, 1, 0), (0, 0, 1)])    # Inertia
-        self.I_inv = ca.inv(self.I)                          # Inertia inverse
-        self.T_max = 5                                    # max thrust [N]
-        self.T_min = 0                                    # min thrust [N]
-        self.omega_max = 3                                # max bodyrate [rad/s]
-        self.ctau = 0.5                                   # thrust torque coeff.
-        self.rampup_dist = 0
-        self.T_ramp_start = 5
-        self.omega_ramp_start = 3
-
-        self.v_max = None
-        self.cd = 0.0
-
-        self.g = 9.801
-
-        if filename:
-            self.load(filename)
-    
-        self._X_lb = [-ca.inf, -ca.inf, -ca.inf,
-                      -ca.inf, -ca.inf, -ca.inf,
-                      -1,-1,-1,-1,
-                      -self.omega_max_xy, -self.omega_max_xy, -self.omega_max_z]
-        self._X_ub = [ca.inf, ca.inf, ca.inf,
-                      ca.inf, ca.inf, ca.inf,
-                      1,1,1,1,
-                      self.omega_max_xy, self.omega_max_xy, self.omega_max_z]
-        self._U_lb = [self.T_min, self.T_min, self.T_min, self.T_min]
-        self._U_ub = [self.T_max, self.T_max, self.T_max, self.T_max]
-
-    def load(self, filename):
-        print("Loading track from " + filename)
-        with open(filename, 'r') as file:
-          quad = yaml.load(file, Loader=yaml.FullLoader)
-
-        if 'mass' in quad:
-          self.m = quad['mass']
-        else:
-          print("No mass specified in " + filename)
-
-        if 'arm_length' in quad:
-          self.l = quad['arm_length']
-        else:
-          print("No arm length specified in " + filename)
-
-        if 'inertia' in quad:
-          self.I = ca.DM(quad['inertia'])
-          self.I_inv = ca.inv(self.I)
-        else:
-          print("No inertia specified in " + filename)
-
-
-        if 'TWR_max' in quad:
-          self.T_max = quad['TWR_max'] * 9.81 * self.m / 4
-        elif 'thrust_max' in quad:
-          self.T_max = quad['thrust_max']
-        else:
-          print("No max thrust specified in " + filename)
-
-        if 'TWR_min' in quad:
-          self.T_min = quad['TWR_min'] * 9.81 * self.m / 4
-        elif 'thrust_min' in quad:
-          self.T_min = quad['thrust_min']
-        else:
-          print("No min thrust specified in " + filename)
-
-        if 'omega_max_xy' in quad:
-          self.omega_max_xy = quad['omega_max_xy']
-        else:
-          print("No max omega_xy specified in " + filename)
-
-        if 'omega_max_z' in quad:
-          self.omega_max_z = quad['omega_max_z']
-        else:
-          print("No max omega_z specified in " + filename)
-
-        if 'torque_coeff' in quad:
-          self.ctau = quad['torque_coeff']
-        else:
-          print("No thrust to drag coefficient specified in " + filename)
-
-        if 'v_max' in quad:
-          self.v_max = quad['v_max']
-          a_max = 4 * self.T_max / self.m
-          a_hmax = np.sqrt(a_max**2 - self.g**2)
-          self.cd = a_hmax / self.v_max
-        if 'drag_coeff' in quad:
-          self.cd = quad['drag_coeff']
-
-        if 'rampup_dist' in quad:
-          self.rampup_dist = quad['rampup_dist']
-          if 'TWR_ramp_start' in quad and 'omega_ramp_start' in quad:
-            self.T_ramp_start = min(quad['TWR_ramp_start'] * 9.81 * self.m / 4, self.T_max)
-            self.omega_ramp_start = min(quad['omega_ramp_start'], self.omega_max_xy)
-          else:
-            print("No TWR_ramp_start or omega_ramp_start specified. Disabling rampup")
-            rampup_dist = 0
-
-
-    def dynamics(self):
-        px, py, pz = ca.SX.sym('px'), ca.SX.sym('py'), ca.SX.sym('pz')
-        vx, vy, vz = ca.SX.sym('vx'), ca.SX.sym('vy'), ca.SX.sym('vz')
-        qw, qx, qy, qz = ca.SX.sym('qw'), ca.SX.sym('qx'), ca.SX.sym('qy'), ca.SX.sym('qz')
-        wx, wy, wz = ca.SX.sym('wx'), ca.SX.sym('wy'), ca.SX.sym('wz')
-
-        T1, T2, T3, T4 = ca.SX.sym('T1'), ca.SX.sym('T2'), ca.SX.sym('T3'), ca.SX.sym('T4')
-
-        x = ca.vertcat(px,py,pz, vx,vy,vz, qw,qx,qy,qz, wx,wy,wz)
-        u = ca.vertcat(T1,T2,T3,T4)
-
-        g = ca.DM([0, 0, self.g])
-
-        x_dot = ca.vertcat(
-          vx,
-          vy,
-          vz,
-          rotate_quat(ca.veccat(qw,qx,qy,qz), ca.vertcat(0, 0, -(T1+T2+T3+T4)/self.m)) + g - ca.veccat(vx,vy,vz) * self.cd,
-          0.5*quat_mult(ca.veccat(qw,qx,qy,qz), ca.vertcat(0, wx,wy,wz)),
-          ca.mtimes(self.I_inv, ca.vertcat(
-            self.l*(T1-T2-T3+T4),
-            self.l*(-T1-T2+T3+T4),
-            self.ctau*(T1-T2+T3-T4))
-          -ca.cross(ca.veccat(wx,wy,wz),ca.mtimes(self.I,ca.veccat(wx,wy,wz))))
-        )
-        fx = ca.Function('f',  [x, u], [x_dot], ['x', 'u'], ['x_dot'])
-        return fx
-
-    def ddynamics(self, dt):
-        f = self.dynamics()
-        X0 = ca.SX.sym("X", f.size1_in(0))
-        U = ca.SX.sym("U", f.size1_in(1))
-        
-        X1 = RK4(f, X0, U, dt, 1)
-        q_l = ca.sqrt(X1[6:10].T@X1[6:10])
-        X1[6:10] = X1[6:10]/q_l
-        
-        return ca.Function("ddyn", [X0, U], [X1], ["X0", "U"], ["X1"])
-    
-    def ddynamics_dt(self):
-        f = self.dynamics()
-        X0 = ca.SX.sym("X", f.size1_in(0))
-        U = ca.SX.sym("U", f.size1_in(1))
-        dt = ca.SX.sym('dt')
-        
-        # X1 = EulerIntegral(f, X0, U, dt, 1)
-        X1 = RK4(f, X0, U, dt, 1)
-
-        q_l = ca.sqrt(X1[6:10].T@X1[6:10])
-        X1[6:10] = X1[6:10]/q_l
-        
-        return ca.Function("ddyn_t", [X0, U, dt], [X1], ["X0", "U", "dt"], ["X1"])
 
 if __name__ == "__main__":
     quad = QuadrotorModel('quad.yaml')
