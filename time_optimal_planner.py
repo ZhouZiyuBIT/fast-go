@@ -62,12 +62,12 @@ class WayPointOpt():
             'ipopt.print_level': 0,
         }
         self._opt_t_option = {
-            # 'verbose': False,
+            'verbose': False,
             # 'ipopt.tol': 1e-2,
             # 'ipopt.acceptable_tol': 1e-2,
             'ipopt.max_iter': 1000,
             # 'ipopt.warm_start_init_point': 'yes',
-            'ipopt.print_level': 3
+            'ipopt.print_level': 0
         }
 
         #################################################################
