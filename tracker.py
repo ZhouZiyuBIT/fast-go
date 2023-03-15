@@ -443,7 +443,7 @@ class TrackerPosVel():
         self._t = ca.SX.sym('t', self._Herizon)
         
         self._X_init = ca.SX.sym("X_init", self._X_dim)
-        self._trj_N = 30
+        self._trj_N = 15
         self._Trj_p = ca.SX.sym("Trj_p", 3, self._trj_N)
         self._Trj_v = ca.SX.sym("Trj_v", 3, self._trj_N)
         self._Trj_dt = ca.SX.sym("Trj_dt", 1, self._trj_N)
@@ -573,7 +573,7 @@ class TrackerPosVel():
     
     def define_opt(self):
         nlp_dect = {
-            'f': 10*self._nlp_obj_trjp+1*self._nlp_obj_trjv, #+0.0*self._nlp_obj_aim_point,#+30*self._nlp_obj_trjyaw,
+            'f': 10*self._nlp_obj_trjp+2*self._nlp_obj_trjv, #+0.0*self._nlp_obj_aim_point,#+30*self._nlp_obj_trjyaw,
             'x': ca.vertcat(*(self._nlp_x_x+self._nlp_x_u+self._nlp_x_t)),
             'p': ca.vertcat(*(self._nlp_p_xinit+self._nlp_p_Trj_p+self._nlp_p_Trj_v+self._nlp_p_Trj_dt+[self._Aim_point])),
             'g': ca.vertcat(*(self._nlp_g_dyn+self._nlp_g_t)),
@@ -776,7 +776,7 @@ class TrackerMPCC():
         self._Herizon = 10
         self._ddynamics = []
         for n in range(self._Herizon):
-            self._ddynamics += [self._quad.ddynamics(0.2+n*0.0)]
+            self._ddynamics += [self._quad.ddynamics(0.06+n*0.01)]
         
         self._X_dim = self._ddynamics[0].size1_in(0)
         self._U_dim = self._ddynamics[0].size1_in(1)
@@ -855,9 +855,10 @@ class TrackerMPCC():
         self._nlp_ubg_dyn += [  0.0 for _ in range(self._X_dim) ]
         
         self._nlp_obj_l += self._l[0]
-        trjp, trjv = linear2(self._trj_N, self._l[0], self._Trj_p, self._Trj_p_ls)
+        # trjp = linear(self._trj_N, self._l[0], self._Trj_p, self._Trj_p_ls)
         # self._nlp_obj_trjp += p_cost(self._Xs[:3,0]-trjp, 0.5)
-        self._nlp_obj_trjp += 10140*ca.cross(trjv, self._Xs[:3,0]-trjp).T@ca.cross(trjv, self._Xs[:3,0]-trjp) + 1000*(trjv.T@(self._Xs[:3,0]-trjp))*(trjv.T@(self._Xs[:3,0]-trjp))
+        trjp, trjv = linear2(self._trj_N, self._l[0], self._Trj_p, self._Trj_p_ls)
+        self._nlp_obj_trjp += 1*ca.cross(trjv, self._Xs[:3,0]-trjp).T@ca.cross(trjv, self._Xs[:3,0]-trjp) + 1*(trjv.T@(self._Xs[:3,0]-trjp))*(trjv.T@(self._Xs[:3,0]-trjp))
         self._nlp_obj_trjv += trjv.T@(self._Xs[3:6,0])
         
         self._nlp_x_l += [self._l[0]]
@@ -879,9 +880,10 @@ class TrackerMPCC():
             self._nlp_ubg_dyn += [  0.0 for _ in range(self._X_dim) ]
             
             self._nlp_obj_l += self._l[i]
-            trjp, trjv = linear2(self._trj_N, self._l[i], self._Trj_p, self._Trj_p_ls)
+            # trjp = linear(self._trj_N, self._l[i], self._Trj_p, self._Trj_p_ls)
             # self._nlp_obj_trjp += p_cost(self._Xs[:3,i]-trjp, 0.5)
-            self._nlp_obj_trjp += 100*ca.cross(trjv, self._Xs[:3,i]-trjp).T@ca.cross(trjv, self._Xs[:3,i]-trjp) + 1000*(trjv.T@(self._Xs[:3,i]-trjp))*(trjv.T@(self._Xs[:3,i]-trjp))
+            trjp, trjv = linear2(self._trj_N, self._l[i], self._Trj_p, self._Trj_p_ls)
+            self._nlp_obj_trjp += 1*ca.cross(trjv, self._Xs[:3,i]-trjp).T@ca.cross(trjv, self._Xs[:3,i]-trjp) + 1*(trjv.T@(self._Xs[:3,i]-trjp))*(trjv.T@(self._Xs[:3,i]-trjp))
             self._nlp_obj_trjv += trjv.T@(self._Xs[3:6,i])
             
             self._nlp_x_l += [self._l[i]]
@@ -919,7 +921,7 @@ class TrackerMPCC():
     
     def define_opt(self):
         nlp_dect = {
-            'f': -1*self._nlp_obj_l+1*(self._nlp_obj_trjp),#+30*self._nlp_obj_trjyaw,
+            'f': -1*self._nlp_obj_trjv+30*(self._nlp_obj_trjp),#+30*self._nlp_obj_trjyaw,
             'x': ca.vertcat(*(self._nlp_x_x+self._nlp_x_u+self._nlp_x_l)),
             'p': ca.vertcat(*(self._nlp_p_xinit+self._nlp_p_Trj_p)),
             'g': ca.vertcat(*(self._nlp_g_dyn+self._nlp_g_l)),
